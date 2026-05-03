@@ -1,1 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TaxGPT Tanzania</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #020c1b;
+    color: white;
+}
+
+/* NAVBAR */
+.nav {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 40px;
+    background: #020c1b;
+    border-bottom: 1px solid #0a192f;
+}
+
+.logo { font-weight: bold; }
+
+.nav-right {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.signup {
+    background: #c8ff00;
+    color: black;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+/* HERO */
+.hero {
+    text-align: center;
+    margin-top: 60px;
+}
+
+.hero h1 {
+    font-size: 36px;
+}
+
+.hero p {
+    color: #8892b0;
+}
+
+/* SEARCH */
+.search {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.search input {
+    width: 420px;
+    padding: 12px;
+    background: #0a192f;
+    border: 1px solid #233554;
+    color: white;
+    border-radius: 8px 0 0 8px;
+}
+
+.search button {
+    background: #c8ff00;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 0 8px 8px 0;
+    cursor: pointer;
+}
+
+/* CHAT BOX */
+.chat-box {
+    margin: 30px auto;
+    width: 600px;
+    border: 1px solid #233554;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: left;
+}
+
+/* TOOLS */
+.tools {
+    margin-top: 40px;
+    text-align: center;
+}
+
+.grid {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(4, 180px);
+    gap: 15px;
+    justify-content: center;
+}
+
+.card {
+    padding: 15px;
+    border: 1px solid #233554;
+    border-radius: 10px;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* FOOTER */
+.footer {
+    position: fixed;
+    bottom: 10px;
+    width: 100%;
+    text-align: center;
+    color: #8892b0;
+    font-size: 12px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="nav">
+    <div class="logo">TaxGPT</div>
+    <div class="nav-right">
+        <div>Sign in</div>
+        <div class="signup">Sign up</div>
+    </div>
+</div>
+
+<div class="hero">
+    <h1>TaxGPT Tanzania</h1>
+    <p>Your AI assistant for Tanzanian tax law</p>
+
+    <div class="search">
+        <input id="question" placeholder="Ask your tax question..." />
+        <button onclick="ask()">Ask</button>
+    </div>
+
+    <div id="chat" class="chat-box"></div>
+</div>
+
+<div class="tools">
+    <p>Select a tool to begin</p>
+
+    <div class="grid">
+        <div class="card">💬 Tax Research</div>
+        <div class="card">📄 Document Analyzer</div>
+        <div class="card">✍️ Drafting</div>
+        <div class="card">📊 Calculators</div>
+        <div class="card">👥 Payroll</div>
+        <div class="card">📅 Deadlines</div>
+        <div class="card">⚠️ Penalties</div>
+        <div class="card">🏢 Business Setup</div>
+    </div>
+</div>
+
+<div class="footer">
+    TaxGPT Tanzania | Built by Gabriel Obren
+</div>
+
+<script>
+async function ask() {
+    let q = document.getElementById("question").value;
+
+    if (!q) return;
+
+    let chat = document.getElementById("chat");
+    chat.innerHTML = "<b>You:</b> " + q + "<br><br>Loading...";
+
+    let res = await fetch("http://127.0.0.1:8000/ask", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({question: q})
+    });
+
+    let data = await res.json();
+
+    chat.innerHTML =
+        "<b>You:</b> " + q + "<br><br>" +
+        "<b>AI:</b> " + data.answer;
+}
+</script>
+
+</body>
+</html>
