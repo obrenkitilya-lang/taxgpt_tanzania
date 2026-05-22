@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaxGPT Tanzania</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, sans-serif;
+}
+
+body{
+    background:#020817;
+    color:white;
+    height:100vh;
+    display:flex;
+}
+
+/* SIDEBAR */
+.sidebar{
+    width:260px;
+    background:#081028;
+    border-right:1px solid #1e293b;
+    padding:20px;
+    flex-shrink:0;
+}
+
+.logo{
+    font-size:28px;
+    font-weight:bold;
+    margin-bottom:25px;
+}
+
+.new-chat{
+    width:100%;
+    background:#dfff00;
+    border:none;
+    padding:14px;
+    border-radius:12px;
+    font-weight:bold;
+    cursor:pointer;
+    margin-bottom:25px;
+    color:black;
+}
+
+.menu{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.menu-item{
+    padding:14px;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.menu-item:hover{
+    background:#111c44;
+}
+
+.active{
+    background:#111c44;
+}
+
+/* MAIN AREA */
+.main{
+    flex:1;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:40px;
+}
+
+.hero{
+    width:100%;
+    max-width:850px;
+    text-align:center;
+}
+
+.hero h1{
+    font-size:42px;
+    margin-bottom:10px;
+}
+
+.hero p{
+    color:#94a3b8;
+    margin-bottom:35px;
+}
+
+/* INPUT BOX - FIXED */
+.search-box{
+    width:100%;
+    max-width:700px;
+    height:68px;
+    display:flex;
+    align-items:stretch;
+    background:#0f172a;
+    border:1px solid #1e293b;
+    border-radius:18px;
+    overflow:hidden;
+    margin:0 auto;
+}
+
+.search-box input{
+    flex:1;
+    height:68px;
+    min-height:68px;
+    border:none;
+    outline:none;
+    background:transparent !important;
+    background-color:transparent !important;
+    color:white;
+    font-size:18px;
+    padding:0 24px;
+    -webkit-appearance:none;
+    appearance:none;
+}
+
+.search-box input::placeholder{
+    color:#64748b;
+}
+
+.search-box input:focus{
+    background:transparent !important;
+    background-color:transparent !important;
+}
+
+.search-box button{
+    width:140px;
+    height:68px;
+    min-height:68px;
+    border:none;
+    background:#dfff00;
+    color:black;
+    font-size:22px;
+    font-weight:bold;
+    cursor:pointer;
+    flex-shrink:0;
+}
+
+.search-box button:hover{
+    background:#c8e600;
+}
+</style>
+<base target="_blank">
+</head>
+
+<body>
+
+<div class="sidebar">
+    <div class="logo">TaxGPT</div>
+    <button class="new-chat">+ New Chat</button>
+    <div class="menu">
+        <div class="menu-item active">💬 Tax Research</div>
+        <div class="menu-item">📄 Document Analyzer</div>
+        <div class="menu-item">✍️ Drafting</div>
+        <div class="menu-item">🧮 Calculators</div>
+        <div class="menu-item">💰 Payroll</div>
+        <div class="menu-item">📅 Deadlines</div>
+        <div class="menu-item">⚠️ Penalties</div>
+        <div class="menu-item">🏢 Business Setup</div>
+    </div>
+</div>
+
+<div class="main">
+    <div class="hero">
+        <h1>TaxGPT Tanzania</h1>
+        <p>Your AI assistant for Tanzanian tax law</p>
+
+        <form class="search-box" onsubmit="return false;">
+            <input type="text" placeholder="Ask your tax question..." autocomplete="off">
+            <button type="submit">Ask</button>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

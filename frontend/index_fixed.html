@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaxGPT Tanzania</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, sans-serif;
+}
+
+body{
+    background:#020817;
+    color:white;
+    height:100vh;
+    display:flex;
+}
+
+/* SIDEBAR */
+.sidebar{
+    width:260px;
+    background:#081028;
+    border-right:1px solid #1e293b;
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+}
+
+.sidebar-header{
+    padding:20px;
+    border-bottom:1px solid #1e293b;
+}
+
+.logo{
+    font-size:24px;
+    font-weight:bold;
+    margin-bottom:16px;
+}
+
+.new-chat{
+    width:100%;
+    background:#dfff00;
+    border:none;
+    padding:12px;
+    border-radius:10px;
+    font-weight:bold;
+    cursor:pointer;
+    color:black;
+    font-size:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+}
+
+.new-chat:hover{
+    background:#c8e600;
+}
+
+/* Tools section */
+.tools-section{
+    padding:12px 16px;
+    border-bottom:1px solid #1e293b;
+}
+
+.tools-title{
+    font-size:11px;
+    color:#64748b;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    margin-bottom:8px;
+    padding:0 4px;
+}
+
+.tool-item{
+    padding:10px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    color:#94a3b8;
+    text-decoration:none;
+}
+
+.tool-item:hover{
+    background:#111c44;
+    color:white;
+}
+
+.tool-item.active{
+    background:#111c44;
+    color:white;
+}
+
+/* Chat history section */
+.history-section{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+}
+
+.history-header{
+    padding:12px 20px 8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.history-title-text{
+    font-size:11px;
+    color:#64748b;
+    text-transform:uppercase;
+    letter-spacing:1px;
+}
+
+.chat-history{
+    flex:1;
+    overflow-y:auto;
+    padding:0 12px 12px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+}
+
+.history-item{
+    padding:10px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:13px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    color:#94a3b8;
+}
+
+.history-item:hover{
+    background:#111c44;
+    color:white;
+}
+
+.history-item.active{
+    background:#1e3a5f;
+    color:white;
+}
+
+.history-item-text{
+    flex:1;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.delete-btn{
+    background:none;
+    border:none;
+    color:#64748b;
+    cursor:pointer;
+    font-size:14px;
+    padding:0 4px;
+    opacity:0;
+}
+
+.history-item:hover .delete-btn{
+    opacity:1;
+}
+
+.delete-btn:hover{
+    color:#ef4444;
+}
+
+/* Sidebar footer */
+.sidebar-footer{
+    padding:12px 20px;
+    border-top:1px solid #1e293b;
+    font-size:12px;
+    color:#64748b;
+}
+
+/* MAIN AREA */
+.main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+}
+
+/* TOP SECTION - Title */
+.top-section{
+    text-align:center;
+    padding:30px 20px 15px;
+    flex-shrink:0;
+}
+
+.top-section h1{
+    font-size:42px;
+    margin-bottom:10px;
+}
+
+.top-section p{
+    color:#94a3b8;
+}
+
+/* Tool indicator */
+.tool-indicator{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:#0f172a;
+    border:1px solid #1e293b;
+    padding:6px 14px;
+    border-radius:20px;
+    font-size:13px;
+    color:#94a3b8;
+    margin-top:10px;
+}
+
+.tool-indicator .dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#dfff00;
+}
+
+/* CHAT AREA - Messages */
+.chat-area{
+    flex:1;
+    overflow-y:auto;
+    padding:20px 40px;
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+}
+
+/* Welcome message when no chats */
+.welcome-message{
+    text-align:center;
+    color:#64748b;
+    margin-top:100px;
+}
+
+/* Message bubbles */
+.message{
+    max-width:80%;
+    padding:16px 20px;
+    border-radius:12px;
+    line-height:1.6;
+    font-size:15px;
+}
+
+.user-message{
+    align-self:flex-end;
+    background:#1e3a5f;
+    color:white;
+}
+
+.ai-message{
+    align-self:flex-start;
+    background:#0f172a;
+    color:#e2e8f0;
+    border:1px solid #1e293b;
+}
+
+/* Markdown styling for AI messages */
+.ai-message h1, .ai-message h2, .ai-message h3{
+    margin:12px 0 8px;
+    color:#dfff00;
+}
+
+.ai-message p{
+    margin:8px 0;
+}
+
+.ai-message ul, .ai-message ol{
+    margin:10px 0 10px 20px;
+}
+
+.ai-message li{
+    margin:5px 0;
+}
+
+.ai-message a{
+    color:#dfff00;
+    text-decoration:underline;
+}
+
+.ai-message strong{
+    color:#dfff00;
+    font-weight:bold;
+}
+
+.ai-message code{
+    background:#1e293b;
+    padding:2px 6px;
+    border-radius:4px;
+    font-family:monospace;
+    font-size:14px;
+}
+
+.ai-message pre{
+    background:#1e293b;
+    padding:12px;
+    border-radius:8px;
+    overflow-x:auto;
+    margin:10px 0;
+}
+
+.ai-message pre code{
+    background:none;
+    padding:0;
+}
+
+/* Typing indicator */
+.typing{
+    align-self:flex-start;
+    background:#0f172a;
+    color:#64748b;
+    padding:12px 20px;
+    border-radius:12px;
+    border:1px solid #1e293b;
+    font-style:italic;
+}
+
+/* BOTTOM SECTION - Chat input */
+.bottom-section{
+    padding:20px 40px 30px;
+    flex-shrink:0;
+}
+
+/* INPUT BOX */
+.search-box{
+    width:100%;
+    max-width:700px;
+    height:68px;
+    display:flex;
+    background:#0f172a;
+    border:1px solid #1e293b;
+    border-radius:18px;
+    overflow:hidden;
+    margin:0 auto;
+}
+
+.search-box input{
+    flex:1;
+    border:none;
+    outline:none;
+    background:none;
+    color:white;
+    font-size:18px;
+    padding:0 24px;
+}
+
+.search-box input::placeholder{
+    color:#64748b;
+}
+
+.search-box button{
+    width:140px;
+    border:none;
+    background:#dfff00;
+    color:black;
+    font-size:22px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.search-box button:hover{
+    background:#c8e600;
+}
+
+.search-box button:disabled{
+    background:#6b7c00;
+    cursor:not-allowed;
+}
+
+/* TOOL PAGES - Calculator, Deadlines, etc. */
+.tool-page{
+    flex:1;
+    overflow-y:auto;
+    padding:20px 40px;
+}
+
+.calculator-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+    gap:20px;
+    max-width:900px;
+    margin:0 auto;
+}
+
+.calc-card{
+    background:#0f172a;
+    border:1px solid #1e293b;
+    border-radius:16px;
+    padding:24px;
+}
+
+.calc-card h3{
+    color:#dfff00;
+    margin-bottom:16px;
+    font-size:18px;
+}
+
+.calc-input{
+    width:100%;
+    padding:12px;
+    background:#020817;
+    border:1px solid #1e293b;
+    border-radius:8px;
+    color:white;
+    font-size:16px;
+    margin-bottom:12px;
+}
+
+.calc-btn{
+    width:100%;
+    padding:12px;
+    background:#dfff00;
+    border:none;
+    border-radius:8px;
+    color:black;
+    font-weight:bold;
+    cursor:pointer;
+    font-size:16px;
+}
+
+.calc-btn:hover{
+    background:#c8e600;
+}
+
+.calc-result{
+    margin-top:16px;
+    padding:16px;
+    background:#020817;
+    border-radius:8px;
+    border:1px solid #1e293b;
+}
+
+.calc-result-row{
+    display:flex;
+    justify-content:space-between;
+    padding:8px 0;
+    border-bottom:1px solid #1e293b;
+}
+
+.calc-result-row:last-child{
+    border-bottom:none;
+}
+
+.calc-result-label{
+    color:#94a3b8;
+}
+
+.calc-result-value{
+    color:white;
+    font-weight:bold;
+}
+
+/* Document upload area */
+.upload-area{
+    border:2px dashed #1e293b;
+    border-radius:16px;
+    padding:40px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color 0.2s;
+}
+
+.upload-area:hover{
+    border-color:#dfff00;
+}
+
+.upload-icon{
+    font-size:48px;
+    margin-bottom:16px;
+}
+
+/* Deadlines page */
+.deadline-list{
+    max-width:700px;
+    margin:0 auto;
+}
+
+.deadline-item{
+    background:#0f172a;
+    border:1px solid #1e293b;
+    border-radius:12px;
+    padding:20px;
+    margin-bottom:12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.deadline-date{
+    color:#dfff00;
+    font-weight:bold;
+    font-size:18px;
+}
+
+.deadline-name{
+    color:white;
+    font-size:16px;
+}
+
+.deadline-status{
+    padding:6px 12px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:bold;
+}
+
+.status-upcoming{
+    background:#1e3a5f;
+    color:#60a5fa;
+}
+
+.status-urgent{
+    background:#451a1a;
+    color:#f87171;
+}
+
+/* Business setup steps */
+.setup-steps{
+    max-width:700px;
+    margin:0 auto;
+}
+
+.setup-step{
+    display:flex;
+    gap:16px;
+    margin-bottom:24px;
+}
+
+.step-number{
+    width:40px;
+    height:40px;
+    background:#dfff00;
+    color:black;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    flex-shrink:0;
+}
+
+.step-content h3{
+    color:#dfff00;
+    margin-bottom:8px;
+}
+
+.step-content p{
+    color:#94a3b8;
+    line-height:1.6;
+}
+
+/* Scrollbar styling */
+.chat-area::-webkit-scrollbar, .chat-history::-webkit-scrollbar, .tool-page::-webkit-scrollbar{
+    width:6px;
+}
+
+.chat-area::-webkit-scrollbar-track, .chat-history::-webkit-scrollbar-track, .tool-page::-webkit-scrollbar-track{
+    background:transparent;
+}
+
+.chat-area::-webkit-scrollbar-thumb, .chat-history::-webkit-scrollbar-thumb, .tool-page::-webkit-scrollbar-thumb{
+    background:#1e293b;
+    border-radius:3px;
+}
+
+.hidden{
+    display:none !important;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">TaxGPT</div>
+        <button class="new-chat" onclick="newChat()">+ New Chat</button>
+    </div>
+    
+    <div class="tools-section">
+        <div class="tools-title">Tools</div>
+        <a href="/" class="tool-item" data-tool="tax_research" id="tool-tax_research">💬 Tax Research</a>
+        <a href="/documents" class="tool-item" data-tool="documents" id="tool-documents">📄 Documents</a>
+        <a href="/calculators" class="tool-item" data-tool="calculators" id="tool-calculators">🧮 Calculators</a>
+        <a href="/deadlines" class="tool-item" data-tool="deadlines" id="tool-deadlines">📅 Deadlines</a>
+        <a href="/business_setup" class="tool-item" data-tool="business_setup" id="tool-business_setup">🏢 Business Setup</a>
+    </div>
+    
+    <div class="history-section">
+        <div class="history-header">
+            <span class="history-title-text">Recent Chats</span>
+        </div>
+        <div class="chat-history" id="chatHistory">
+            <!-- Chat sessions will load here -->
+        </div>
+    </div>
+    
+    <div class="sidebar-footer">
+        TaxGPT Tanzania v1.0
+    </div>
+</div>
+
+<div class="main">
+
+    <!-- TOP: Title -->
+    <div class="top-section">
+        <h1>TaxGPT Tanzania</h1>
+        <p>Your AI assistant for Tanzanian tax law</p>
+        <div class="tool-indicator" id="toolIndicator">
+            <span class="dot"></span>
+            <span id="toolName">Tax Research</span>
+        </div>
+    </div>
+
+    <!-- CHAT PAGE (default) -->
+    <div class="chat-area" id="chatPage">
+        <div class="welcome-message" id="welcomeMsg">
+            Ask me anything about Tanzanian tax law
+        </div>
+    </div>
+
+    <!-- CALCULATORS PAGE -->
+    <div class="tool-page hidden" id="calculatorsPage">
+        <div class="calculator-grid">
+            <div class="calc-card">
+                <h3>🧮 PAYE Calculator</h3>
+                <input type="number" class="calc-input" id="payeGross" placeholder="Enter gross salary (TZS)">
+                <button class="calc-btn" onclick="calculatePAYE()">Calculate Net Pay</button>
+                <div class="calc-result hidden" id="payeResult"></div>
+            </div>
+            
+            <div class="calc-card">
+                <h3>🧮 VAT Calculator</h3>
+                <input type="number" class="calc-input" id="vatAmount" placeholder="Enter amount (TZS)">
+                <button class="calc-btn" onclick="calculateVAT()">Calculate VAT</button>
+                <div class="calc-result hidden" id="vatResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DOCUMENTS PAGE -->
+    <div class="tool-page hidden" id="documentsPage">
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📄</div>
+            <h3>Upload Tax Document</h3>
+            <p style="color:#64748b; margin-top:8px;">Click to upload or drag and drop</p>
+            <input type="file" id="fileInput" style="display:none;" accept=".pdf,.doc,.docx,.png,.jpg">
+        </div>
+        <div style="max-width:700px; margin:20px auto 0;">
+            <p style="color:#64748b; text-align:center;">Document analysis chat will appear here</p>
+        </div>
+    </div>
+
+    <!-- DEADLINES PAGE -->
+    <div class="tool-page hidden" id="deadlinesPage">
+        <div class="deadline-list">
+            <div class="deadline-item">
+                <div>
+                    <div class="deadline-name">Monthly VAT Return</div>
+                </div>
+                <div class="deadline-date">20th of each month</div>
+                <span class="deadline-status status-upcoming">Recurring</span>
+            </div>
+            <div class="deadline-item">
+                <div>
+                    <div class="deadline-name">Monthly PAYE Return</div>
+                </div>
+                <div class="deadline-date">7th of each month</div>
+                <span class="deadline-status status-upcoming">Recurring</span>
+            </div>
+            <div class="deadline-item">
+                <div>
+                    <div class="deadline-name">Annual Income Tax Return</div>
+                </div>
+                <div class="deadline-date">30th June</div>
+                <span class="deadline-status status-urgent">Annual</span>
+            </div>
+            <div class="deadline-item">
+                <div>
+                    <div class="deadline-name">Provisional Tax Payment (Q1)</div>
+                </div>
+                <div class="deadline-date">31st March</div>
+                <span class="deadline-status status-upcoming">Quarterly</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- BUSINESS SETUP PAGE -->
+    <div class="tool-page hidden" id="businessSetupPage">
+        <div class="setup-steps">
+            <div class="setup-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Register for TIN</h3>
+                    <p>Apply for a Taxpayer Identification Number (TIN) at the Tanzania Revenue Authority (TRA). This is required for all tax transactions.</p>
+                </div>
+            </div>
+            <div class="setup-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Business Registration</h3>
+                    <p>Register your business with BRELA (Business Registrations and Licensing Agency) to obtain a certificate of incorporation.</p>
+                </div>
+            </div>
+            <div class="setup-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>VAT Registration</h3>
+                    <p>If your annual turnover exceeds TZS 100 million, you must register for VAT. Voluntary registration is also available.</p>
+                </div>
+            </div>
+            <div class="setup-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>Tax Clearance</h3>
+                    <p>Obtain a Tax Clearance Certificate (TCC) to prove compliance. Required for government tenders and contracts.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM: Chat input (only for chat pages) -->
+    <div class="bottom-section" id="chatInput">
+        <form class="search-box" id="chatForm" onsubmit="return false;">
+            <input type="text" id="userInput" placeholder="Ask your tax question..." autocomplete="off">
+            <button type="submit" id="askBtn">Ask</button>
+        </form>
+    </div>
+
+</div>
+
+<script>
+// Detect current tool from URL
+const path = window.location.pathname;
+const currentTool = path === '/' ? 'tax_research' : path.replace('/', '');
+const currentToolName = {
+    'tax_research': 'Tax Research',
+    'documents': 'Documents',
+    'calculators': 'Calculators',
+    'deadlines': 'Deadlines',
+    'business_setup': 'Business Setup'
+}[currentTool] || 'Tax Research';
+
+// Update sidebar active state
+document.querySelectorAll('.tool-item').forEach(item => {
+    item.classList.remove('active');
+});
+const activeTool = document.getElementById(`tool-${currentTool}`);
+if (activeTool) activeTool.classList.add('active');
+
+// Update tool indicator
+document.getElementById('toolName').textContent = currentToolName;
+
+// Show/hide pages based on tool
+const chatPage = document.getElementById('chatPage');
+const calculatorsPage = document.getElementById('calculatorsPage');
+const documentsPage = document.getElementById('documentsPage');
+const deadlinesPage = document.getElementById('deadlinesPage');
+const businessSetupPage = document.getElementById('businessSetupPage');
+const chatInput = document.getElementById('chatInput');
+
+if (currentTool === 'calculators') {
+    chatPage.classList.add('hidden');
+    chatInput.classList.add('hidden');
+    calculatorsPage.classList.remove('hidden');
+} else if (currentTool === 'documents') {
+    chatPage.classList.add('hidden');
+    chatInput.classList.add('hidden');
+    documentsPage.classList.remove('hidden');
+} else if (currentTool === 'deadlines') {
+    chatPage.classList.add('hidden');
+    chatInput.classList.add('hidden');
+    deadlinesPage.classList.remove('hidden');
+} else if (currentTool === 'business_setup') {
+    chatPage.classList.add('hidden');
+    chatInput.classList.add('hidden');
+    businessSetupPage.classList.remove('hidden');
+}
+
+// Chat functionality (only for chat pages)
+if (currentTool === 'tax_research' || currentTool === 'documents') {
+    const chatArea = document.getElementById('chatPage');
+    const userInput = document.getElementById('userInput');
+    const chatForm = document.getElementById('chatForm');
+    const askBtn = document.getElementById('askBtn');
+    const welcomeMsg = document.getElementById('welcomeMsg');
+    const chatHistory = document.getElementById('chatHistory');
+
+    let currentSessionId = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        loadSessions();
+    });
+
+    chatForm.addEventListener('submit', sendMessage);
+    userInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') sendMessage(e);
+    });
+
+    function sendMessage(e) {
+        e.preventDefault();
+        const question = userInput.value.trim();
+        if (!question) return;
+        
+        if (welcomeMsg) welcomeMsg.style.display = 'none';
+        addMessage(question, 'user');
+        userInput.value = '';
+        
+        const typingId = showTyping();
+        askBtn.disabled = true;
+        
+        fetch('/ask', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                question: question,
+                session_id: currentSessionId,
+                tool: currentTool
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            removeTyping(typingId);
+            if (data.error) {
+                addMessage('Sorry, there was an error: ' + data.error, 'ai');
+            } else {
+                addMessage(data.answer, 'ai');
+                currentSessionId = data.session_id;
+                loadSessions();
+            }
+            askBtn.disabled = false;
+        })
+        .catch(error => {
+            removeTyping(typingId);
+            addMessage('Sorry, there was an error processing your request.', 'ai');
+            askBtn.disabled = false;
+        });
+    }
+
+    function addMessage(text, sender) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${sender}-message`;
+        if (sender === 'ai') {
+            msgDiv.innerHTML = marked.parse(text);
+        } else {
+            msgDiv.textContent = text;
+        }
+        chatArea.appendChild(msgDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+    }
+
+    function showTyping() {
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'typing';
+        typingDiv.id = 'typing-' + Date.now();
+        typingDiv.textContent = 'TaxGPT is thinking...';
+        chatArea.appendChild(typingDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+        return typingDiv.id;
+    }
+
+    function removeTyping(id) {
+        const typingDiv = document.getElementById(id);
+        if (typingDiv) typingDiv.remove();
+    }
+
+    function newChat() {
+        currentSessionId = null;
+        chatArea.innerHTML = '<div class="welcome-message" id="welcomeMsg">Ask me anything about Tanzanian tax law</div>';
+        userInput.value = '';
+        userInput.focus();
+        loadSessions();
+    }
+
+    function loadSessions() {
+        fetch('/api/sessions')
+        .then(response => response.json())
+        .then(sessions => {
+            chatHistory.innerHTML = '';
+            sessions.forEach(session => {
+                const div = document.createElement('div');
+                div.className = 'history-item' + (session.id === currentSessionId ? ' active' : '');
+                div.innerHTML = `
+                    <span class="history-item-text">${session.title}</span>
+                    <button class="delete-btn" onclick="deleteSession(${session.id}, event)">×</button>
+                `;
+                div.onclick = () => loadSession(session.id);
+                chatHistory.appendChild(div);
+            });
+        });
+    }
+
+    function loadSession(sessionId) {
+        currentSessionId = sessionId;
+        fetch(`/api/sessions/${sessionId}`)
+        .then(response => response.json())
+        .then(messages => {
+            chatArea.innerHTML = '';
+            welcomeMsg.style.display = 'none';
+            messages.forEach(msg => addMessage(msg.content, msg.role));
+            loadSessions();
+            chatArea.scrollTop = chatArea.scrollHeight;
+        });
+    }
+
+    function deleteSession(sessionId, event) {
+        event.stopPropagation();
+        if (!confirm('Delete this chat?')) return;
+        fetch(`/api/sessions/${sessionId}`, {method: 'DELETE'})
+        .then(() => {
+            if (currentSessionId === sessionId) newChat();
+            else loadSessions();
+        });
+    }
+}
+
+// Calculator functions
+function calculatePAYE() {
+    const gross = parseFloat(document.getElementById('payeGross').value);
+    if (!gross) return;
+    
+    fetch('/api/calculate/paye', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({gross_salary: gross})
+    })
+    .then(r => r.json())
+    .then(data => {
+        const resultDiv = document.getElementById('payeResult');
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+            <div class="calc-result-row"><span class="calc-result-label">Gross Salary</span><span class="calc-result-value">${data.gross_salary.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">NSSF (10%)</span><span class="calc-result-value">${data.nssf.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">PAYE</span><span class="calc-result-value">${data.paye.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">Net Pay</span><span class="calc-result-value" style="color:#dfff00">${data.net_pay.toLocaleString()} TZS</span></div>
+        `;
+    });
+}
+
+function calculateVAT() {
+    const amount = parseFloat(document.getElementById('vatAmount').value);
+    if (!amount) return;
+    
+    fetch('/api/calculate/vat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({amount: amount})
+    })
+    .then(r => r.json())
+    .then(data => {
+        const resultDiv = document.getElementById('vatResult');
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+            <div class="calc-result-row"><span class="calc-result-label">Amount</span><span class="calc-result-value">${data.amount.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">VAT (18%)</span><span class="calc-result-value">${data.vat_amount.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">Total</span><span class="calc-result-value" style="color:#dfff00">${data.total.toLocaleString()} TZS</span></div>
+        `;
+    });
+}
+</script>
+
+</body>
+</html>
