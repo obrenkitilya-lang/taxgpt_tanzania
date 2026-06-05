@@ -1,3 +1,6 @@
+import tempfile
+import PyPDF2
+from werkzeug.utils import secure_filename
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from openai import OpenAI
@@ -65,6 +68,20 @@ class ChatMessage(db.Model):
             'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M')
         }
 
+
+class Document(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    content_text = db.Column(db.Text, nullable=True)
+    uploaded_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    session_id = db.Column(db.Integer, db.ForeignKey('chat_session.id'), nullable=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'filename': self.filename,
+            'uploaded_at': self.uploaded_at.strftime('%Y-%m-%d %H:%M')
+        }
 CORS(app)
 
 # OpenAI client
@@ -289,6 +306,121 @@ button{
 </html>
 """
 
+
+ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt', 'png', 'jpg', 'jpeg'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route("/api/documents", methods=["GET"])
+def get_documents():
+    try:
+        docs = Document.query.order_by(Document.uploaded_at.desc()).all()
+        return jsonify([d.to_dict() for d in docs])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/documents/upload", methods=["POST"])
+def upload_document():
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "No file selected"}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({"error": "Invalid file type. Allowed: PDF, DOC, DOCX, TXT, PNG, JPG"}), 400
+        
+        filename = secure_filename(file.filename)
+        content_text = ""
+        
+        if filename.lower().endswith('.pdf'):
+            try:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    content_text += page.extract_text() + "\n"
+            except Exception as e:
+                content_text = f"Could not extract text: {str(e)}"
+        elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            content_text = "[Image uploaded - visual analysis available via chat]"
+        else:
+            content_text = f"[Document uploaded: {filename}]"
+        
+        doc = Document(filename=filename, content_text=content_text)
+        db.session.add(doc)
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Document uploaded successfully",
+            "document": doc.to_dict(),
+            "content_preview": content_text[:500] if content_text else ""
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/documents/<int:doc_id>", methods=["GET"])
+def get_document(doc_id):
+    try:
+        doc = Document.query.get_or_404(doc_id)
+        return jsonify({
+            "id": doc.id,
+            "filename": doc.filename,
+            "content_text": doc.content_text,
+            "uploaded_at": doc.uploaded_at.strftime('%Y-%m-%d %H:%M')
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/documents/<int:doc_id>", methods=["DELETE"])
+def delete_document(doc_id):
+    try:
+        doc = Document.query.get_or_404(doc_id)
+        db.session.delete(doc)
+        db.session.commit()
+        return jsonify({"message": "Document deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/documents/analyze", methods=["POST"])
+def analyze_document():
+    try:
+        data = request.get_json()
+        doc_id = data.get("document_id")
+        question = data.get("question", "Analyze this tax document")
+        
+        doc = Document.query.get_or_404(doc_id)
+        session = ChatSession(title=f"Doc: {doc.filename[:30]}", tool="documents")
+        db.session.add(session)
+        db.session.commit()
+        
+        user_msg = ChatMessage(session_id=session.id, role='user', content=f"[Document: {doc.filename}] {question}")
+        db.session.add(user_msg)
+        db.session.commit()
+        
+        doc_content = doc.content_text[:3000] if doc.content_text else "No text content available."
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": TOOL_PROMPTS["documents"]},
+                {"role": "user", "content": f"Document content:\n{doc_content}\n\nQuestion: {question}"}
+            ]
+        )
+        answer = response.choices[0].message.content
+        
+        ai_msg = ChatMessage(session_id=session.id, role='ai', content=answer)
+        db.session.add(ai_msg)
+        db.session.commit()
+        
+        return jsonify({
+            "answer": answer,
+            "session_id": session.id,
+            "document_id": doc.id
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 with app.app_context():
     db.create_all()
 
