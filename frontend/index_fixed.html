@@ -478,6 +478,11 @@ body{
     border-color:#dfff00;
 }
 
+.upload-area.dragover {
+    border-color: #dfff00;
+    background: #0f172a;
+}
+
 .upload-icon{
     font-size:48px;
     margin-bottom:16px;
@@ -590,7 +595,7 @@ body{
         <div class="logo">TaxGPT</div>
         <button class="new-chat" onclick="newChat()">+ New Chat</button>
     </div>
-    
+
     <div class="tools-section">
         <div class="tools-title">Tools</div>
         <a href="/" class="tool-item" data-tool="tax_research" id="tool-tax_research">💬 Tax Research</a>
@@ -599,7 +604,7 @@ body{
         <a href="/deadlines" class="tool-item" data-tool="deadlines" id="tool-deadlines">📅 Deadlines</a>
         <a href="/business_setup" class="tool-item" data-tool="business_setup" id="tool-business_setup">🏢 Business Setup</a>
     </div>
-    
+
     <div class="history-section">
         <div class="history-header">
             <span class="history-title-text">Recent Chats</span>
@@ -608,7 +613,7 @@ body{
             <!-- Chat sessions will load here -->
         </div>
     </div>
-    
+
     <div class="sidebar-footer">
         TaxGPT Tanzania v1.0
     </div>
@@ -642,7 +647,7 @@ body{
                 <button class="calc-btn" onclick="calculatePAYE()">Calculate Net Pay</button>
                 <div class="calc-result hidden" id="payeResult"></div>
             </div>
-            
+
             <div class="calc-card">
                 <h3>🧮 VAT Calculator</h3>
                 <input type="number" class="calc-input" id="vatAmount" placeholder="Enter amount (TZS)">
@@ -654,14 +659,40 @@ body{
 
     <!-- DOCUMENTS PAGE -->
     <div class="tool-page hidden" id="documentsPage">
-        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-            <div class="upload-icon">📄</div>
-            <h3>Upload Tax Document</h3>
-            <p style="color:#64748b; margin-top:8px;">Click to upload or drag and drop</p>
-            <input type="file" id="fileInput" style="display:none;" accept=".pdf,.doc,.docx,.png,.jpg">
-        </div>
-        <div style="max-width:700px; margin:20px auto 0;">
-            <p style="color:#64748b; text-align:center;">Document analysis chat will appear here</p>
+        <div style="max-width:900px; margin:0 auto;">
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon" id="uploadIcon">📄</div>
+                <h3 id="uploadTitle">Upload Tax Document</h3>
+                <p style="color:#64748b; margin-top:8px;" id="uploadDesc">Click to upload or drag and drop PDF, DOC, DOCX, TXT, PNG, JPG</p>
+                <input type="file" id="fileInput" style="display:none;" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFileUpload(this)">
+            </div>
+
+            <div id="uploadProgress" class="hidden" style="margin-top:16px; text-align:center;">
+                <div style="background:#0f172a; border-radius:8px; padding:16px; border:1px solid #1e293b;">
+                    <div style="color:#dfff00; font-weight:bold;">Uploading...</div>
+                    <div style="width:100%; height:4px; background:#1e293b; border-radius:2px; margin-top:12px; overflow:hidden;">
+                        <div id="progressBar" style="width:0%; height:100%; background:#dfff00; transition:width 0.3s;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:24px;">
+                <h3 style="color:#dfff00; margin-bottom:16px; font-size:18px;">📁 Uploaded Documents</h3>
+                <div id="documentsList" style="display:flex; flex-direction:column; gap:12px;">
+                    <p style="color:#64748b; text-align:center;" id="noDocsMsg">No documents uploaded yet</p>
+                </div>
+            </div>
+
+            <div id="docAnalysisSection" class="hidden" style="margin-top:24px;">
+                <h3 style="color:#dfff00; margin-bottom:16px; font-size:18px;">💬 Document Analysis</h3>
+                <div id="docChatArea" style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:16px; min-height:200px; max-height:400px; overflow-y:auto; margin-bottom:16px;">
+                    <p style="color:#64748b; text-align:center;" id="docChatPlaceholder">Select a document and ask a question to analyze it</p>
+                </div>
+                <div class="search-box" style="max-width:100%;">
+                    <input type="text" id="docQuestionInput" placeholder="Ask about this document..." style="flex:1;">
+                    <button onclick="analyzeDocument()" style="width:140px;">Analyze</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -815,14 +846,14 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
         e.preventDefault();
         const question = userInput.value.trim();
         if (!question) return;
-        
+
         if (welcomeMsg) welcomeMsg.style.display = 'none';
         addMessage(question, 'user');
         userInput.value = '';
-        
+
         const typingId = showTyping();
         askBtn.disabled = true;
-        
+
         fetch('/ask', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -932,7 +963,7 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
 function calculatePAYE() {
     const gross = parseFloat(document.getElementById('payeGross').value);
     if (!gross) return;
-    
+
     fetch('/api/calculate/paye', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -954,7 +985,7 @@ function calculatePAYE() {
 function calculateVAT() {
     const amount = parseFloat(document.getElementById('vatAmount').value);
     if (!amount) return;
-    
+
     fetch('/api/calculate/vat', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -970,6 +1001,186 @@ function calculateVAT() {
             <div class="calc-result-row"><span class="calc-result-label">Total</span><span class="calc-result-value" style="color:#dfff00">${data.total.toLocaleString()} TZS</span></div>
         `;
     });
+}
+
+// Document upload and analysis functions
+let currentDocId = null;
+
+function handleFileUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const uploadArea = document.getElementById('uploadArea');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+
+    uploadArea.style.pointerEvents = 'none';
+    uploadArea.style.opacity = '0.6';
+    uploadProgress.classList.remove('hidden');
+
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += 10;
+        progressBar.style.width = progress + '%';
+        if (progress >= 90) clearInterval(progressInterval);
+    }, 100);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+
+        setTimeout(() => {
+            uploadProgress.classList.add('hidden');
+            uploadArea.style.pointerEvents = 'auto';
+            uploadArea.style.opacity = '1';
+            document.getElementById('uploadIcon').textContent = '✅';
+            document.getElementById('uploadTitle').textContent = 'Upload Another Document';
+            document.getElementById('uploadDesc').textContent = file.name + ' uploaded successfully';
+
+            loadDocuments();
+            input.value = '';
+        }, 500);
+    })
+    .catch(error => {
+        clearInterval(progressInterval);
+        uploadProgress.classList.add('hidden');
+        uploadArea.style.pointerEvents = 'auto';
+        uploadArea.style.opacity = '1';
+        alert('Upload failed: ' + error.message);
+    });
+}
+
+function loadDocuments() {
+    fetch('/api/documents')
+    .then(response => response.json())
+    .then(docs => {
+        const list = document.getElementById('documentsList');
+
+        if (docs.length === 0) {
+            list.innerHTML = '<p style="color:#64748b; text-align:center;" id="noDocsMsg">No documents uploaded yet</p>';
+            return;
+        }
+
+        list.innerHTML = '';
+        docs.forEach(doc => {
+            const div = document.createElement('div');
+            div.style.cssText = 'background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;';
+            div.innerHTML = `
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:24px;">📄</span>
+                    <div>
+                        <div style="color:white; font-weight:bold;">${doc.filename}</div>
+                        <div style="color:#64748b; font-size:12px;">${doc.uploaded_at}</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="selectDocument(${doc.id}, '${doc.filename}', event)" style="background:#dfff00; border:none; padding:8px 16px; border-radius:8px; color:black; font-weight:bold; cursor:pointer;">Analyze</button>
+                    <button onclick="deleteDocument(${doc.id}, event)" style="background:#451a1a; border:none; padding:8px 16px; border-radius:8px; color:#f87171; font-weight:bold; cursor:pointer;">Delete</button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    });
+}
+
+function selectDocument(docId, filename, event) {
+    event.stopPropagation();
+    currentDocId = docId;
+
+    const analysisSection = document.getElementById('docAnalysisSection');
+    const chatArea = document.getElementById('docChatArea');
+
+    analysisSection.classList.remove('hidden');
+    chatArea.innerHTML = `<p style="color:#64748b; text-align:center;">Document: <strong style="color:#dfff00;">${filename}</strong><br>Ask a question below to analyze it</p>`;
+}
+
+function analyzeDocument() {
+    const input = document.getElementById('docQuestionInput');
+    const question = input.value.trim();
+    if (!question || !currentDocId) return;
+
+    const chatArea = document.getElementById('docChatArea');
+    const placeholder = document.getElementById('docChatPlaceholder');
+    if (placeholder) placeholder.remove();
+
+    const userMsg = document.createElement('div');
+    userMsg.style.cssText = 'background:#1e3a5f; color:white; padding:12px 16px; border-radius:12px; margin-bottom:12px; align-self:flex-end; max-width:80%;';
+    userMsg.textContent = question;
+    chatArea.appendChild(userMsg);
+    chatArea.scrollTop = chatArea.scrollHeight;
+
+    input.value = '';
+
+    const typing = document.createElement('div');
+    typing.style.cssText = 'color:#64748b; font-style:italic; padding:12px;';
+    typing.textContent = 'Analyzing document...';
+    typing.id = 'docTyping';
+    chatArea.appendChild(typing);
+    chatArea.scrollTop = chatArea.scrollHeight;
+
+    fetch('/api/documents/analyze', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            document_id: currentDocId,
+            question: question
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const typingEl = document.getElementById('docTyping');
+        if (typingEl) typingEl.remove();
+
+        if (data.error) {
+            const errorMsg = document.createElement('div');
+            errorMsg.style.cssText = 'background:#451a1a; color:#f87171; padding:12px 16px; border-radius:12px; margin-bottom:12px;';
+            errorMsg.textContent = 'Error: ' + data.error;
+            chatArea.appendChild(errorMsg);
+        } else {
+            const aiMsg = document.createElement('div');
+            aiMsg.style.cssText = 'background:#0f172a; border:1px solid #1e293b; color:#e2e8f0; padding:16px; border-radius:12px; margin-bottom:12px; line-height:1.6;';
+            aiMsg.innerHTML = marked.parse(data.answer);
+            chatArea.appendChild(aiMsg);
+        }
+        chatArea.scrollTop = chatArea.scrollHeight;
+    })
+    .catch(error => {
+        const typingEl = document.getElementById('docTyping');
+        if (typingEl) typingEl.remove();
+
+        const errorMsg = document.createElement('div');
+        errorMsg.style.cssText = 'background:#451a1a; color:#f87171; padding:12px 16px; border-radius:12px; margin-bottom:12px;';
+        errorMsg.textContent = 'Error analyzing document';
+        chatArea.appendChild(errorMsg);
+        chatArea.scrollTop = chatArea.scrollHeight;
+    });
+}
+
+function deleteDocument(docId, event) {
+    event.stopPropagation();
+    if (!confirm('Delete this document?')) return;
+
+    fetch(`/api/documents/${docId}`, {method: 'DELETE'})
+    .then(() => {
+        if (currentDocId === docId) {
+            currentDocId = null;
+            document.getElementById('docAnalysisSection').classList.add('hidden');
+        }
+        loadDocuments();
+    });
+}
+
+// Load documents when on documents page
+if (currentTool === 'documents') {
+    window.addEventListener('DOMContentLoaded', loadDocuments);
 }
 </script>
 
