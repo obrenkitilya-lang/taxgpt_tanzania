@@ -20,7 +20,6 @@ body{
     display:flex;
 }
 
-/* SIDEBAR */
 .sidebar{
     width:260px;
     background:#081028;
@@ -61,7 +60,6 @@ body{
     background:#c8e600;
 }
 
-/* Auth section in sidebar */
 .auth-section{
     padding:12px 16px;
     border-bottom:1px solid #1e293b;
@@ -130,12 +128,6 @@ body{
     color:#f87171;
 }
 
-.guest-warning a{
-    color:#dfff00;
-    text-decoration:underline;
-}
-
-/* Tools section */
 .tools-section{
     padding:12px 16px;
     border-bottom:1px solid #1e293b;
@@ -172,7 +164,6 @@ body{
     color:white;
 }
 
-/* Chat history section */
 .history-section{
     flex:1;
     display:flex;
@@ -250,7 +241,6 @@ body{
     color:#ef4444;
 }
 
-/* Sidebar footer */
 .sidebar-footer{
     padding:12px 20px;
     border-top:1px solid #1e293b;
@@ -258,7 +248,6 @@ body{
     color:#64748b;
 }
 
-/* MAIN AREA */
 .main{
     flex:1;
     display:flex;
@@ -267,7 +256,22 @@ body{
     overflow:hidden;
 }
 
-/* TOP SECTION - Title */
+.limit-banner{
+    background:#451a1a;
+    border:1px solid #7f1d1d;
+    color:#f87171;
+    padding:12px 20px;
+    text-align:center;
+    font-size:14px;
+    flex-shrink:0;
+}
+
+.limit-banner a{
+    color:#dfff00;
+    text-decoration:underline;
+    cursor:pointer;
+}
+
 .top-section{
     text-align:center;
     padding:30px 20px 15px;
@@ -283,7 +287,6 @@ body{
     color:#94a3b8;
 }
 
-/* Tool indicator */
 .tool-indicator{
     display:inline-flex;
     align-items:center;
@@ -304,7 +307,6 @@ body{
     background:#dfff00;
 }
 
-/* CHAT AREA - Messages */
 .chat-area{
     flex:1;
     overflow-y:auto;
@@ -314,14 +316,12 @@ body{
     gap:20px;
 }
 
-/* Welcome message when no chats */
 .welcome-message{
     text-align:center;
     color:#64748b;
     margin-top:100px;
 }
 
-/* Message bubbles */
 .message{
     max-width:80%;
     padding:16px 20px;
@@ -343,7 +343,6 @@ body{
     border:1px solid #1e293b;
 }
 
-/* Markdown styling for AI messages */
 .ai-message h1, .ai-message h2, .ai-message h3{
     margin:12px 0 8px;
     color:#dfff00;
@@ -392,7 +391,6 @@ body{
     padding:0;
 }
 
-/* Typing indicator */
 .typing{
     align-self:flex-start;
     background:#0f172a;
@@ -403,13 +401,11 @@ body{
     font-style:italic;
 }
 
-/* BOTTOM SECTION - Chat input */
 .bottom-section{
     padding:20px 40px 30px;
     flex-shrink:0;
 }
 
-/* INPUT BOX */
 .search-box{
     width:100%;
     max-width:700px;
@@ -455,7 +451,6 @@ body{
     cursor:not-allowed;
 }
 
-/* TOOL PAGES - Calculator, Deadlines, etc. */
 .tool-page{
     flex:1;
     overflow-y:auto;
@@ -549,7 +544,6 @@ body{
     font-weight:bold;
 }
 
-/* Document upload area */
 .upload-area{
     border:2px dashed #1e293b;
     border-radius:16px;
@@ -573,7 +567,6 @@ body{
     margin-bottom:16px;
 }
 
-/* Deadlines page */
 .deadline-list{
     max-width:700px;
     margin:0 auto;
@@ -618,7 +611,6 @@ body{
     color:#f87171;
 }
 
-/* Business setup steps */
 .setup-steps{
     max-width:700px;
     margin:0 auto;
@@ -653,7 +645,6 @@ body{
     line-height:1.6;
 }
 
-/* Login Modal */
 .modal-overlay{
     position:fixed;
     top:0;
@@ -673,6 +664,7 @@ body{
     border-radius:20px;
     width:400px;
     border:1px solid #1e293b;
+    position:relative;
 }
 
 .modal-title{
@@ -726,24 +718,6 @@ body{
     cursor:pointer;
 }
 
-/* Limit banner */
-.limit-banner{
-    background:#451a1a;
-    border:1px solid #7f1d1d;
-    color:#f87171;
-    padding:12px 20px;
-    text-align:center;
-    font-size:14px;
-    flex-shrink:0;
-}
-
-.limit-banner a{
-    color:#dfff00;
-    text-decoration:underline;
-    cursor:pointer;
-}
-
-/* Scrollbar styling */
 .chat-area::-webkit-scrollbar, .chat-history::-webkit-scrollbar, .tool-page::-webkit-scrollbar{
     width:6px;
 }
@@ -772,7 +746,6 @@ body{
         <button class="new-chat" onclick="newChat()">+ New Chat</button>
     </div>
 
-    <!-- Auth Section -->
     <div class="auth-section" id="authSection">
         <div id="guestAuth">
             <a href="/login" class="auth-btn auth-btn-primary">Login</a>
@@ -803,9 +776,7 @@ body{
         <div class="history-header">
             <span class="history-title-text">Recent Chats</span>
         </div>
-        <div class="chat-history" id="chatHistory">
-            <!-- Chat sessions will load here -->
-        </div>
+        <div class="chat-history" id="chatHistory"></div>
     </div>
 
     <div class="sidebar-footer">
@@ -815,13 +786,11 @@ body{
 
 <div class="main">
 
-    <!-- Limit Banner (shown when guest is near limit) -->
     <div class="limit-banner hidden" id="limitBanner">
         <span id="limitBannerText"></span>
         <a onclick="showLoginModal()">Sign up for unlimited access</a>
     </div>
 
-    <!-- TOP: Title -->
     <div class="top-section">
         <h1>TaxGPT Tanzania</h1>
         <p>Your AI assistant for Tanzanian tax law</p>
@@ -831,14 +800,12 @@ body{
         </div>
     </div>
 
-    <!-- CHAT PAGE (default) -->
     <div class="chat-area" id="chatPage">
         <div class="welcome-message" id="welcomeMsg">
             Ask me anything about Tanzanian tax law
         </div>
     </div>
 
-    <!-- CALCULATORS PAGE -->
     <div class="tool-page hidden" id="calculatorsPage">
         <div class="calculator-grid">
             <div class="calc-card">
@@ -893,7 +860,6 @@ body{
         </div>
     </div>
 
-    <!-- DOCUMENTS PAGE -->
     <div class="tool-page hidden" id="documentsPage">
         <div style="max-width:900px; margin:0 auto;">
             <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
@@ -932,75 +898,64 @@ body{
         </div>
     </div>
 
-    <!-- DEADLINES PAGE -->
     <div class="tool-page hidden" id="deadlinesPage">
         <div class="deadline-list">
             <div class="deadline-item">
-                <div>
-                    <div class="deadline-name">Monthly VAT Return</div>
-                </div>
+                <div><div class="deadline-name">Monthly VAT Return</div></div>
                 <div class="deadline-date">20th of each month</div>
                 <span class="deadline-status status-upcoming">Recurring</span>
             </div>
             <div class="deadline-item">
-                <div>
-                    <div class="deadline-name">Monthly PAYE Return</div>
-                </div>
+                <div><div class="deadline-name">Monthly PAYE Return</div></div>
                 <div class="deadline-date">7th of each month</div>
                 <span class="deadline-status status-upcoming">Recurring</span>
             </div>
             <div class="deadline-item">
-                <div>
-                    <div class="deadline-name">Annual Income Tax Return</div>
-                </div>
+                <div><div class="deadline-name">Annual Income Tax Return</div></div>
                 <div class="deadline-date">30th June</div>
                 <span class="deadline-status status-urgent">Annual</span>
             </div>
             <div class="deadline-item">
-                <div>
-                    <div class="deadline-name">Provisional Tax Payment (Q1)</div>
-                </div>
+                <div><div class="deadline-name">Provisional Tax Payment (Q1)</div></div>
                 <div class="deadline-date">31st March</div>
                 <span class="deadline-status status-upcoming">Quarterly</span>
             </div>
         </div>
     </div>
 
-    <!-- BUSINESS SETUP PAGE -->
     <div class="tool-page hidden" id="businessSetupPage">
         <div class="setup-steps">
             <div class="setup-step">
                 <div class="step-number">1</div>
                 <div class="step-content">
                     <h3>Register for TIN</h3>
-                    <p>Apply for a Taxpayer Identification Number (TIN) at the Tanzania Revenue Authority (TRA). This is required for all tax transactions.</p>
+                    <p>Apply for a Taxpayer Identification Number (TIN) at the Tanzania Revenue Authority (TRA).</p>
                 </div>
             </div>
             <div class="setup-step">
                 <div class="step-number">2</div>
                 <div class="step-content">
                     <h3>Business Registration</h3>
-                    <p>Register your business with BRELA (Business Registrations and Licensing Agency) to obtain a certificate of incorporation.</p>
+                    <p>Register your business with BRELA to obtain a certificate of incorporation.</p>
                 </div>
             </div>
             <div class="setup-step">
                 <div class="step-number">3</div>
                 <div class="step-content">
                     <h3>VAT Registration</h3>
-                    <p>If your annual turnover exceeds TZS 100 million, you must register for VAT. Voluntary registration is also available.</p>
+                    <p>If your annual turnover exceeds TZS 100 million, you must register for VAT.</p>
                 </div>
             </div>
             <div class="setup-step">
                 <div class="step-number">4</div>
                 <div class="step-content">
                     <h3>Tax Clearance</h3>
-                    <p>Obtain a Tax Clearance Certificate (TCC) to prove compliance. Required for government tenders and contracts.</p>
+                    <p>Obtain a Tax Clearance Certificate (TCC) to prove compliance.</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- BOTTOM: Chat input (only for chat pages) -->
     <div class="bottom-section" id="chatInput">
         <form class="search-box" id="chatForm" onsubmit="return false;">
             <input type="text" id="userInput" placeholder="Ask your tax question..." autocomplete="off">
@@ -1010,9 +965,8 @@ body{
 
 </div>
 
-<!-- Login Modal -->
 <div class="modal-overlay hidden" id="loginModal">
-    <div class="modal-content" style="position:relative;">
+    <div class="modal-content">
         <button class="modal-close" onclick="hideLoginModal()">×</button>
         <h2 class="modal-title" id="modalTitle">Login</h2>
         <input type="email" class="modal-input" id="modalEmail" placeholder="Email">
@@ -1026,7 +980,6 @@ body{
 </div>
 
 <script>
-// Detect current tool from URL
 const path = window.location.pathname;
 const currentTool = path === '/' ? 'tax_research' : path.replace('/', '');
 const currentToolName = {
@@ -1037,17 +990,12 @@ const currentToolName = {
     'business_setup': 'Business Setup'
 }[currentTool] || 'Tax Research';
 
-// Update sidebar active state
-document.querySelectorAll('.tool-item').forEach(item => {
-    item.classList.remove('active');
-});
+document.querySelectorAll('.tool-item').forEach(item => item.classList.remove('active'));
 const activeTool = document.getElementById(`tool-${currentTool}`);
 if (activeTool) activeTool.classList.add('active');
 
-// Update tool indicator
 document.getElementById('toolName').textContent = currentToolName;
 
-// Show/hide pages based on tool
 const chatPage = document.getElementById('chatPage');
 const calculatorsPage = document.getElementById('calculatorsPage');
 const documentsPage = document.getElementById('documentsPage');
@@ -1056,29 +1004,21 @@ const businessSetupPage = document.getElementById('businessSetupPage');
 const chatInput = document.getElementById('chatInput');
 
 if (currentTool === 'calculators') {
-    chatPage.classList.add('hidden');
-    chatInput.classList.add('hidden');
-    calculatorsPage.classList.remove('hidden');
+    chatPage.classList.add('hidden'); chatInput.classList.add('hidden'); calculatorsPage.classList.remove('hidden');
 } else if (currentTool === 'documents') {
-    chatPage.classList.add('hidden');
-    chatInput.classList.add('hidden');
-    documentsPage.classList.remove('hidden');
+    chatPage.classList.add('hidden'); chatInput.classList.add('hidden'); documentsPage.classList.remove('hidden');
 } else if (currentTool === 'deadlines') {
-    chatPage.classList.add('hidden');
-    chatInput.classList.add('hidden');
-    deadlinesPage.classList.remove('hidden');
+    chatPage.classList.add('hidden'); chatInput.classList.add('hidden'); deadlinesPage.classList.remove('hidden');
 } else if (currentTool === 'business_setup') {
-    chatPage.classList.add('hidden');
-    chatInput.classList.add('hidden');
-    businessSetupPage.classList.remove('hidden');
+    chatPage.classList.add('hidden'); chatInput.classList.add('hidden'); businessSetupPage.classList.remove('hidden');
 }
 
 // ========================
-// AUTH STATE
+// AUTH
 // ========================
 let isLoggedIn = false;
 let userEmail = '';
-let modalMode = 'login'; // 'login' or 'signup'
+let modalMode = 'login';
 
 function checkAuth() {
     fetch('/api/auth/me')
@@ -1102,9 +1042,7 @@ window.addEventListener('DOMContentLoaded', checkAuth);
 
 function logout() {
     fetch('/api/auth/logout', {method: 'POST'})
-    .then(() => {
-        window.location.reload();
-    });
+    .then(() => window.location.reload());
 }
 
 function showLoginModal() {
@@ -1170,7 +1108,7 @@ function handleAuth() {
 }
 
 // ========================
-// GUEST LIMIT HANDLING
+// GUEST LIMITS
 // ========================
 function showLimitBanner(message) {
     const banner = document.getElementById('limitBanner');
@@ -1196,7 +1134,7 @@ function handleGuestLimit(response) {
 }
 
 // ========================
-// CHAT FUNCTIONALITY
+// STREAMING CHAT
 // ========================
 if (currentTool === 'tax_research' || currentTool === 'documents') {
     const chatArea = document.getElementById('chatPage');
@@ -1223,11 +1161,26 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
         if (!question) return;
 
         if (welcomeMsg) welcomeMsg.style.display = 'none';
-        addMessage(question, 'user');
-        userInput.value = '';
 
-        const typingId = showTyping();
+        // Add user message
+        const userMsgDiv = document.createElement('div');
+        userMsgDiv.className = 'message user-message';
+        userMsgDiv.textContent = question;
+        chatArea.appendChild(userMsgDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        userInput.value = '';
         askBtn.disabled = true;
+
+        // Create empty AI message container
+        const aiMsgDiv = document.createElement('div');
+        aiMsgDiv.className = 'message ai-message';
+        aiMsgDiv.style.minHeight = '40px';
+        chatArea.appendChild(aiMsgDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        let fullText = '';
+        let sessionIdFromStream = null;
 
         fetch('/ask', {
             method: 'POST',
@@ -1238,54 +1191,54 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
                 tool: currentTool
             })
         })
-        .then(response => response.json())
-        .then(data => {
-            removeTyping(typingId);
-            if (handleGuestLimit(data)) {
-                askBtn.disabled = false;
-                return;
+        .then(response => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            function readStream() {
+                return reader.read().then(({done, value}) => {
+                    if (done) {
+                        askBtn.disabled = false;
+                        if (sessionIdFromStream) {
+                            currentSessionId = sessionIdFromStream;
+                            loadSessions();
+                        }
+                        return;
+                    }
+
+                    const chunk = decoder.decode(value, {stream: true});
+                    const lines = chunk.split('\n');
+
+                    lines.forEach(line => {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+
+                                if (data.type === 'session') {
+                                    sessionIdFromStream = data.session_id;
+                                } else if (data.type === 'token') {
+                                    fullText += data.content;
+                                    aiMsgDiv.innerHTML = marked.parse(fullText);
+                                    chatArea.scrollTop = chatArea.scrollHeight;
+                                } else if (data.type === 'done') {
+                                    if (data.remaining !== undefined && data.remaining !== null && data.remaining <= 2) {
+                                        showLimitBanner(`You have ${data.remaining} free uses remaining.`);
+                                    }
+                                }
+                            } catch (e) {}
+                        }
+                    });
+
+                    return readStream();
+                });
             }
-            if (data.error) {
-                addMessage('Sorry, there was an error: ' + data.error, 'ai');
-            } else {
-                addMessage(data.answer, 'ai');
-                currentSessionId = data.session_id;
-                loadSessions();
-            }
-            askBtn.disabled = false;
+
+            return readStream();
         })
         .catch(error => {
-            removeTyping(typingId);
-            addMessage('Sorry, there was an error processing your request.', 'ai');
+            aiMsgDiv.innerHTML = 'Sorry, there was an error processing your request.';
             askBtn.disabled = false;
         });
-    }
-
-    function addMessage(text, sender) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `message ${sender}-message`;
-        if (sender === 'ai') {
-            msgDiv.innerHTML = marked.parse(text);
-        } else {
-            msgDiv.textContent = text;
-        }
-        chatArea.appendChild(msgDiv);
-        chatArea.scrollTop = chatArea.scrollHeight;
-    }
-
-    function showTyping() {
-        const typingDiv = document.createElement('div');
-        typingDiv.className = 'typing';
-        typingDiv.id = 'typing-' + Date.now();
-        typingDiv.textContent = 'TaxGPT is thinking...';
-        chatArea.appendChild(typingDiv);
-        chatArea.scrollTop = chatArea.scrollHeight;
-        return typingDiv.id;
-    }
-
-    function removeTyping(id) {
-        const typingDiv = document.getElementById(id);
-        if (typingDiv) typingDiv.remove();
     }
 
     function newChat() {
@@ -1321,7 +1274,16 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
         .then(messages => {
             chatArea.innerHTML = '';
             welcomeMsg.style.display = 'none';
-            messages.forEach(msg => addMessage(msg.content, msg.role));
+            messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = `message ${msg.role}-message`;
+                if (msg.role === 'ai') {
+                    div.innerHTML = marked.parse(msg.content);
+                } else {
+                    div.textContent = msg.content;
+                }
+                chatArea.appendChild(div);
+            });
             loadSessions();
             chatArea.scrollTop = chatArea.scrollHeight;
         });
@@ -1339,7 +1301,7 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
 }
 
 // ========================
-// CALCULATOR FUNCTIONS
+// CALCULATORS
 // ========================
 function calculatePAYE() {
     const gross = parseFloat(document.getElementById('payeGross').value);
@@ -1478,7 +1440,7 @@ function calculateWithholding() {
 }
 
 // ========================
-// DOCUMENT FUNCTIONS
+// DOCUMENTS
 // ========================
 let currentDocId = null;
 
@@ -1529,7 +1491,6 @@ function handleFileUpload(input) {
             document.getElementById('uploadIcon').textContent = '✅';
             document.getElementById('uploadTitle').textContent = 'Upload Another Document';
             document.getElementById('uploadDesc').textContent = file.name + ' uploaded successfully';
-
             loadDocuments();
             input.value = '';
         }, 500);
@@ -1665,7 +1626,6 @@ function deleteDocument(docId, event) {
     });
 }
 
-// Load documents when on documents page
 if (currentTool === 'documents') {
     window.addEventListener('DOMContentLoaded', loadDocuments);
 }

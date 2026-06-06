@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, session
+from flask import Flask, request, jsonify, send_file, Response, stream_with_context
 from flask_cors import CORS
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 import os
 import tempfile
 import PyPDF2
+import json
 from datetime import datetime, timedelta
 
 # Load environment variables
@@ -93,7 +94,7 @@ class Document(db.Model):
 class GuestActivity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ip_address = db.Column(db.String(45), nullable=False)
-    activity_type = db.Column(db.String(20), nullable=False)  # 'chat', 'document', 'calculator'
+    activity_type = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
 CORS(app)
@@ -106,10 +107,10 @@ client = OpenAI(
 # Tool-specific system prompts
 TOOL_PROMPTS = {
     "tax_research": "You are a Tanzanian tax research assistant. Provide detailed explanations with references to the Income Tax Act, VAT Act, and other relevant laws.",
-    "documents": "You are a tax document expert. Help users understand tax forms, notices, and draft formal letters, appeals, or tax documents in proper format.",
-    "calculators": "You are a tax calculation expert. Provide step-by-step calculations for VAT, PAYE, SDL, WCF, corporate tax, and other Tanzanian taxes. Show your work clearly.",
-    "deadlines": "You are a tax compliance expert. Provide specific filing deadlines, explain penalties for late filing, and guide users on how to request extensions or appeal penalties.",
-    "business_setup": "You are a business registration advisor. Explain TIN registration, tax clearance, VAT registration, and ongoing compliance requirements for businesses in Tanzania."
+    "documents": "You are a tax document expert. Help users understand tax forms, notices, and other tax documents.",
+    "calculators": "You are a tax calculation expert. Provide step-by-step calculations for VAT, PAYE, SDL, WCF, corporate tax, and other Tanzanian taxes.",
+    "deadlines": "You are a tax compliance expert. Provide specific filing deadlines and explain penalties for late filing.",
+    "business_setup": "You are a business registration advisor. Explain TIN registration, tax clearance, VAT registration, and ongoing compliance requirements."
 }
 
 # Guest limits
@@ -138,7 +139,6 @@ def check_guest_limit(activity_type, limit):
     if count >= limit:
         return False, f"Guest limit reached. You have used {limit} {activity_type} actions today. Please sign up for unlimited access."
 
-    # Record the activity
     activity = GuestActivity(ip_address=ip, activity_type=activity_type)
     db.session.add(activity)
     db.session.commit()
@@ -258,8 +258,6 @@ body{background:#020817;display:flex;justify-content:center;align-items:center;h
 input{width:100%;padding:15px;margin-top:15px;background:#020817;border:1px solid #334155;color:white;border-radius:10px;box-sizing:border-box}
 button{width:100%;padding:15px;margin-top:20px;background:#d9ff00;border:none;border-radius:10px;font-weight:bold;cursor:pointer;font-size:16px}
 button:hover{background:#c8e600}
-.link{color:#d9ff00;text-decoration:none}
-.error{color:#f87171;margin-top:10px}
 </style>
 </head>
 <body>
@@ -341,7 +339,6 @@ def get_sessions():
         if current_user.is_authenticated:
             sessions = ChatSession.query.filter_by(user_id=current_user.id).order_by(ChatSession.created_at.desc()).all()
         else:
-            # For guests, don't show any sessions (fresh experience)
             sessions = []
         return jsonify([s.to_dict() for s in sessions])
     except Exception as e:
@@ -351,7 +348,6 @@ def get_sessions():
 def get_session_messages(session_id):
     try:
         session = ChatSession.query.get_or_404(session_id)
-        # Verify ownership
         if current_user.is_authenticated and session.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 
@@ -373,10 +369,13 @@ def delete_session(session_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ========================
+# STREAMING CHAT API
+# ========================
+
 @app.route("/ask", methods=["POST"])
 def ask():
     try:
-        # Check guest limit
         allowed, msg = check_guest_limit('chat', GUEST_CHAT_LIMIT)
         if not allowed:
             return jsonify({"error": msg, "limit_reached": True}), 403
@@ -394,13 +393,21 @@ def ask():
         if session_id:
             chat_session = ChatSession.query.get(session_id)
             if not chat_session:
-                chat_session = ChatSession(title=question[:50], tool=tool, user_id=current_user.id if current_user.is_authenticated else None)
+                chat_session = ChatSession(
+                    title=question[:50], 
+                    tool=tool, 
+                    user_id=current_user.id if current_user.is_authenticated else None
+                )
                 db.session.add(chat_session)
                 db.session.commit()
             elif current_user.is_authenticated and chat_session.user_id != current_user.id:
                 return jsonify({"error": "Unauthorized"}), 403
         else:
-            chat_session = ChatSession(title=question[:50], tool=tool, user_id=current_user.id if current_user.is_authenticated else None)
+            chat_session = ChatSession(
+                title=question[:50], 
+                tool=tool, 
+                user_id=current_user.id if current_user.is_authenticated else None
+            )
             db.session.add(chat_session)
             db.session.commit()
 
@@ -408,25 +415,33 @@ def ask():
         db.session.add(user_msg)
         db.session.commit()
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": question}
-            ]
-        )
-        answer = response.choices[0].message.content
+        def generate():
+            full_response = ""
 
-        ai_msg = ChatMessage(session_id=chat_session.id, role='ai', content=answer)
-        db.session.add(ai_msg)
-        db.session.commit()
+            yield f"data: {json.dumps({'type': 'session', 'session_id': chat_session.id})}\n\n"
 
-        return jsonify({
-            "answer": answer,
-            "session_id": chat_session.id,
-            "tool": tool,
-            "remaining": msg if isinstance(msg, int) else None
-        })
+            stream = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question}
+                ],
+                stream=True
+            )
+
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    text = chunk.choices[0].delta.content
+                    full_response += text
+                    yield f"data: {json.dumps({'type': 'token', 'content': text})}\n\n"
+
+            ai_msg = ChatMessage(session_id=chat_session.id, role='ai', content=full_response)
+            db.session.add(ai_msg)
+            db.session.commit()
+
+            yield f"data: {json.dumps({'type': 'done', 'remaining': msg if isinstance(msg, int) else None})}\n\n"
+
+        return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -753,16 +768,14 @@ def analyze_document():
         return jsonify({"error": str(e)}), 500
 
 # ========================
-# DATABASE INIT
+# DATABASE INIT & MIGRATION
 # ========================
 
-# Database migration: add missing columns from schema updates
 def migrate_db():
     with app.app_context():
         inspector = db.inspect(db.engine)
         tables = inspector.get_table_names()
-        
-        # Migrate user table
+
         if 'user' in tables:
             columns = [c['name'] for c in inspector.get_columns('user')]
             if 'created_at' not in columns:
@@ -773,16 +786,14 @@ def migrate_db():
                 db.session.execute(db.text("ALTER TABLE user ADD COLUMN is_guest BOOLEAN DEFAULT 0"))
                 db.session.commit()
                 print("Migration: Added is_guest to user")
-        
-        # Migrate chat_session table
+
         if 'chat_session' in tables:
             columns = [c['name'] for c in inspector.get_columns('chat_session')]
             if 'user_id' not in columns:
                 db.session.execute(db.text("ALTER TABLE chat_session ADD COLUMN user_id INTEGER"))
                 db.session.commit()
                 print("Migration: Added user_id to chat_session")
-        
-        # Migrate document table
+
         if 'document' in tables:
             columns = [c['name'] for c in inspector.get_columns('document')]
             if 'user_id' not in columns:
@@ -797,13 +808,8 @@ def migrate_db():
                 db.session.execute(db.text("ALTER TABLE document ADD COLUMN session_id INTEGER"))
                 db.session.commit()
                 print("Migration: Added session_id to document")
-        
-        # Migrate guest_activity table (new table)
-        if 'guest_activity' not in tables:
-            db.create_all()
-            print("Migration: Created guest_activity table")
-        else:
-            db.create_all()
+
+        db.create_all()
 
 migrate_db()
 
