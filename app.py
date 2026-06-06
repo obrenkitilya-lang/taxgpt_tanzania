@@ -756,8 +756,56 @@ def analyze_document():
 # DATABASE INIT
 # ========================
 
-with app.app_context():
-    db.create_all()
+# Database migration: add missing columns from schema updates
+def migrate_db():
+    with app.app_context():
+        inspector = db.inspect(db.engine)
+        tables = inspector.get_table_names()
+        
+        # Migrate user table
+        if 'user' in tables:
+            columns = [c['name'] for c in inspector.get_columns('user')]
+            if 'created_at' not in columns:
+                db.session.execute(db.text("ALTER TABLE user ADD COLUMN created_at DATETIME"))
+                db.session.commit()
+                print("Migration: Added created_at to user")
+            if 'is_guest' not in columns:
+                db.session.execute(db.text("ALTER TABLE user ADD COLUMN is_guest BOOLEAN DEFAULT 0"))
+                db.session.commit()
+                print("Migration: Added is_guest to user")
+        
+        # Migrate chat_session table
+        if 'chat_session' in tables:
+            columns = [c['name'] for c in inspector.get_columns('chat_session')]
+            if 'user_id' not in columns:
+                db.session.execute(db.text("ALTER TABLE chat_session ADD COLUMN user_id INTEGER"))
+                db.session.commit()
+                print("Migration: Added user_id to chat_session")
+        
+        # Migrate document table
+        if 'document' in tables:
+            columns = [c['name'] for c in inspector.get_columns('document')]
+            if 'user_id' not in columns:
+                db.session.execute(db.text("ALTER TABLE document ADD COLUMN user_id INTEGER"))
+                db.session.commit()
+                print("Migration: Added user_id to document")
+            if 'content_text' not in columns:
+                db.session.execute(db.text("ALTER TABLE document ADD COLUMN content_text TEXT"))
+                db.session.commit()
+                print("Migration: Added content_text to document")
+            if 'session_id' not in columns:
+                db.session.execute(db.text("ALTER TABLE document ADD COLUMN session_id INTEGER"))
+                db.session.commit()
+                print("Migration: Added session_id to document")
+        
+        # Migrate guest_activity table (new table)
+        if 'guest_activity' not in tables:
+            db.create_all()
+            print("Migration: Created guest_activity table")
+        else:
+            db.create_all()
+
+migrate_db()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
