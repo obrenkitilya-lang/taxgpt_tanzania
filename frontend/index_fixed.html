@@ -61,6 +61,80 @@ body{
     background:#c8e600;
 }
 
+/* Auth section in sidebar */
+.auth-section{
+    padding:12px 16px;
+    border-bottom:1px solid #1e293b;
+}
+
+.auth-btn{
+    width:100%;
+    padding:10px;
+    background:transparent;
+    border:1px solid #dfff00;
+    color:#dfff00;
+    border-radius:8px;
+    font-weight:bold;
+    cursor:pointer;
+    font-size:13px;
+    margin-bottom:8px;
+    text-align:center;
+    text-decoration:none;
+    display:block;
+}
+
+.auth-btn:hover{
+    background:#dfff00;
+    color:black;
+}
+
+.auth-btn-primary{
+    background:#dfff00;
+    color:black;
+    border:none;
+}
+
+.auth-btn-primary:hover{
+    background:#c8e600;
+}
+
+.user-info{
+    padding:10px 12px;
+    background:#0f172a;
+    border-radius:8px;
+    margin-bottom:8px;
+}
+
+.user-email{
+    color:white;
+    font-size:13px;
+    font-weight:bold;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.user-badge{
+    font-size:11px;
+    color:#64748b;
+    margin-top:4px;
+}
+
+.guest-warning{
+    padding:8px 12px;
+    background:#451a1a;
+    border:1px solid #7f1d1d;
+    border-radius:8px;
+    margin-bottom:8px;
+    font-size:12px;
+    color:#f87171;
+}
+
+.guest-warning a{
+    color:#dfff00;
+    text-decoration:underline;
+}
+
 /* Tools section */
 .tools-section{
     padding:12px 16px;
@@ -420,6 +494,17 @@ body{
     margin-bottom:12px;
 }
 
+.calc-select{
+    width:100%;
+    padding:12px;
+    background:#020817;
+    border:1px solid #1e293b;
+    border-radius:8px;
+    color:white;
+    font-size:16px;
+    margin-bottom:12px;
+}
+
 .calc-btn{
     width:100%;
     padding:12px;
@@ -568,6 +653,96 @@ body{
     line-height:1.6;
 }
 
+/* Login Modal */
+.modal-overlay{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.8);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:1000;
+}
+
+.modal-content{
+    background:#07123a;
+    padding:40px;
+    border-radius:20px;
+    width:400px;
+    border:1px solid #1e293b;
+}
+
+.modal-title{
+    font-size:24px;
+    margin-bottom:20px;
+    color:white;
+}
+
+.modal-input{
+    width:100%;
+    padding:15px;
+    margin-top:12px;
+    background:#020817;
+    border:1px solid #334155;
+    color:white;
+    border-radius:10px;
+    font-size:16px;
+}
+
+.modal-btn{
+    width:100%;
+    padding:15px;
+    margin-top:16px;
+    background:#dfff00;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+    cursor:pointer;
+    font-size:16px;
+    color:black;
+}
+
+.modal-btn:hover{
+    background:#c8e600;
+}
+
+.modal-link{
+    color:#dfff00;
+    cursor:pointer;
+    text-decoration:underline;
+}
+
+.modal-close{
+    position:absolute;
+    top:20px;
+    right:20px;
+    background:none;
+    border:none;
+    color:#64748b;
+    font-size:24px;
+    cursor:pointer;
+}
+
+/* Limit banner */
+.limit-banner{
+    background:#451a1a;
+    border:1px solid #7f1d1d;
+    color:#f87171;
+    padding:12px 20px;
+    text-align:center;
+    font-size:14px;
+    flex-shrink:0;
+}
+
+.limit-banner a{
+    color:#dfff00;
+    text-decoration:underline;
+    cursor:pointer;
+}
+
 /* Scrollbar styling */
 .chat-area::-webkit-scrollbar, .chat-history::-webkit-scrollbar, .tool-page::-webkit-scrollbar{
     width:6px;
@@ -586,6 +761,7 @@ body{
     display:none !important;
 }
 </style>
+<base target="_blank">
 </head>
 
 <body>
@@ -594,6 +770,24 @@ body{
     <div class="sidebar-header">
         <div class="logo">TaxGPT</div>
         <button class="new-chat" onclick="newChat()">+ New Chat</button>
+    </div>
+
+    <!-- Auth Section -->
+    <div class="auth-section" id="authSection">
+        <div id="guestAuth">
+            <a href="/login" class="auth-btn auth-btn-primary">Login</a>
+            <a href="/signup" class="auth-btn">Sign Up</a>
+            <div class="guest-warning" id="guestWarning" style="display:none;">
+                <span id="guestWarningText"></span>
+            </div>
+        </div>
+        <div id="userAuth" style="display:none;">
+            <div class="user-info">
+                <div class="user-email" id="userEmail"></div>
+                <div class="user-badge">Logged in</div>
+            </div>
+            <button class="auth-btn" onclick="logout()" style="border-color:#ef4444; color:#ef4444;">Logout</button>
+        </div>
     </div>
 
     <div class="tools-section">
@@ -620,6 +814,12 @@ body{
 </div>
 
 <div class="main">
+
+    <!-- Limit Banner (shown when guest is near limit) -->
+    <div class="limit-banner hidden" id="limitBanner">
+        <span id="limitBannerText"></span>
+        <a onclick="showLoginModal()">Sign up for unlimited access</a>
+    </div>
 
     <!-- TOP: Title -->
     <div class="top-section">
@@ -653,6 +853,42 @@ body{
                 <input type="number" class="calc-input" id="vatAmount" placeholder="Enter amount (TZS)">
                 <button class="calc-btn" onclick="calculateVAT()">Calculate VAT</button>
                 <div class="calc-result hidden" id="vatResult"></div>
+            </div>
+
+            <div class="calc-card">
+                <h3>🧮 SDL Calculator</h3>
+                <input type="number" class="calc-input" id="sdlPayroll" placeholder="Enter gross payroll (TZS)">
+                <button class="calc-btn" onclick="calculateSDL()">Calculate SDL</button>
+                <div class="calc-result hidden" id="sdlResult"></div>
+            </div>
+
+            <div class="calc-card">
+                <h3>🧮 WCF Calculator</h3>
+                <input type="number" class="calc-input" id="wcfPayroll" placeholder="Enter gross payroll (TZS)">
+                <button class="calc-btn" onclick="calculateWCF()">Calculate WCF</button>
+                <div class="calc-result hidden" id="wcfResult"></div>
+            </div>
+
+            <div class="calc-card">
+                <h3>🧮 Corporate Tax Calculator</h3>
+                <input type="number" class="calc-input" id="corpIncome" placeholder="Enter taxable income (TZS)">
+                <button class="calc-btn" onclick="calculateCorpTax()">Calculate Tax</button>
+                <div class="calc-result hidden" id="corpResult"></div>
+            </div>
+
+            <div class="calc-card">
+                <h3>🧮 Withholding Tax Calculator</h3>
+                <input type="number" class="calc-input" id="whAmount" placeholder="Enter payment amount (TZS)">
+                <select class="calc-select" id="whType">
+                    <option value="dividends">Dividends (10%)</option>
+                    <option value="interest">Interest (10%)</option>
+                    <option value="royalties">Royalties (15%)</option>
+                    <option value="rent">Rent (10%)</option>
+                    <option value="services">Services (5%)</option>
+                    <option value="consulting">Consulting (15%)</option>
+                </select>
+                <button class="calc-btn" onclick="calculateWithholding()">Calculate WHT</button>
+                <div class="calc-result hidden" id="whResult"></div>
             </div>
         </div>
     </div>
@@ -774,6 +1010,21 @@ body{
 
 </div>
 
+<!-- Login Modal -->
+<div class="modal-overlay hidden" id="loginModal">
+    <div class="modal-content" style="position:relative;">
+        <button class="modal-close" onclick="hideLoginModal()">×</button>
+        <h2 class="modal-title" id="modalTitle">Login</h2>
+        <input type="email" class="modal-input" id="modalEmail" placeholder="Email">
+        <input type="password" class="modal-input" id="modalPassword" placeholder="Password">
+        <button class="modal-btn" id="modalActionBtn" onclick="handleAuth()">Login</button>
+        <p style="text-align:center; margin-top:16px; color:#94a3b8; font-size:14px;">
+            <span id="modalSwitchText">Don't have an account?</span>
+            <span class="modal-link" id="modalSwitchLink" onclick="switchModalMode()">Sign up</span>
+        </p>
+    </div>
+</div>
+
 <script>
 // Detect current tool from URL
 const path = window.location.pathname;
@@ -822,7 +1073,131 @@ if (currentTool === 'calculators') {
     businessSetupPage.classList.remove('hidden');
 }
 
-// Chat functionality (only for chat pages)
+// ========================
+// AUTH STATE
+// ========================
+let isLoggedIn = false;
+let userEmail = '';
+let modalMode = 'login'; // 'login' or 'signup'
+
+function checkAuth() {
+    fetch('/api/auth/me')
+    .then(r => r.json())
+    .then(data => {
+        if (data.logged_in) {
+            isLoggedIn = true;
+            userEmail = data.email;
+            document.getElementById('guestAuth').style.display = 'none';
+            document.getElementById('userAuth').style.display = 'block';
+            document.getElementById('userEmail').textContent = userEmail;
+        } else {
+            isLoggedIn = false;
+            document.getElementById('guestAuth').style.display = 'block';
+            document.getElementById('userAuth').style.display = 'none';
+        }
+    });
+}
+
+window.addEventListener('DOMContentLoaded', checkAuth);
+
+function logout() {
+    fetch('/api/auth/logout', {method: 'POST'})
+    .then(() => {
+        window.location.reload();
+    });
+}
+
+function showLoginModal() {
+    document.getElementById('loginModal').classList.remove('hidden');
+    modalMode = 'login';
+    updateModalUI();
+}
+
+function hideLoginModal() {
+    document.getElementById('loginModal').classList.add('hidden');
+}
+
+function switchModalMode() {
+    modalMode = modalMode === 'login' ? 'signup' : 'login';
+    updateModalUI();
+}
+
+function updateModalUI() {
+    const title = document.getElementById('modalTitle');
+    const btn = document.getElementById('modalActionBtn');
+    const switchText = document.getElementById('modalSwitchText');
+    const switchLink = document.getElementById('modalSwitchLink');
+
+    if (modalMode === 'login') {
+        title.textContent = 'Login';
+        btn.textContent = 'Login';
+        switchText.textContent = "Don't have an account?";
+        switchLink.textContent = 'Sign up';
+    } else {
+        title.textContent = 'Sign Up';
+        btn.textContent = 'Create Account';
+        switchText.textContent = 'Already have an account?';
+        switchLink.textContent = 'Login';
+    }
+}
+
+function handleAuth() {
+    const email = document.getElementById('modalEmail').value.trim();
+    const password = document.getElementById('modalPassword').value;
+
+    if (!email || !password) {
+        alert('Please fill in all fields');
+        return;
+    }
+
+    const endpoint = modalMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+
+    fetch(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, password})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            hideLoginModal();
+            window.location.reload();
+        }
+    })
+    .catch(err => alert('Error: ' + err.message));
+}
+
+// ========================
+// GUEST LIMIT HANDLING
+// ========================
+function showLimitBanner(message) {
+    const banner = document.getElementById('limitBanner');
+    const text = document.getElementById('limitBannerText');
+    text.textContent = message + ' ';
+    banner.classList.remove('hidden');
+}
+
+function hideLimitBanner() {
+    document.getElementById('limitBanner').classList.add('hidden');
+}
+
+function handleGuestLimit(response) {
+    if (response.limit_reached) {
+        showLimitBanner(response.error);
+        setTimeout(() => showLoginModal(), 1500);
+        return true;
+    }
+    if (response.remaining !== undefined && response.remaining !== null && response.remaining <= 2) {
+        showLimitBanner(`You have ${response.remaining} free uses remaining.`);
+    }
+    return false;
+}
+
+// ========================
+// CHAT FUNCTIONALITY
+// ========================
 if (currentTool === 'tax_research' || currentTool === 'documents') {
     const chatArea = document.getElementById('chatPage');
     const userInput = document.getElementById('userInput');
@@ -866,6 +1241,10 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
         .then(response => response.json())
         .then(data => {
             removeTyping(typingId);
+            if (handleGuestLimit(data)) {
+                askBtn.disabled = false;
+                return;
+            }
             if (data.error) {
                 addMessage('Sorry, there was an error: ' + data.error, 'ai');
             } else {
@@ -959,7 +1338,9 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
     }
 }
 
-// Calculator functions
+// ========================
+// CALCULATOR FUNCTIONS
+// ========================
 function calculatePAYE() {
     const gross = parseFloat(document.getElementById('payeGross').value);
     if (!gross) return;
@@ -971,6 +1352,7 @@ function calculatePAYE() {
     })
     .then(r => r.json())
     .then(data => {
+        if (handleGuestLimit(data)) return;
         const resultDiv = document.getElementById('payeResult');
         resultDiv.classList.remove('hidden');
         resultDiv.innerHTML = `
@@ -993,6 +1375,7 @@ function calculateVAT() {
     })
     .then(r => r.json())
     .then(data => {
+        if (handleGuestLimit(data)) return;
         const resultDiv = document.getElementById('vatResult');
         resultDiv.classList.remove('hidden');
         resultDiv.innerHTML = `
@@ -1003,7 +1386,100 @@ function calculateVAT() {
     });
 }
 
-// Document upload and analysis functions
+function calculateSDL() {
+    const payroll = parseFloat(document.getElementById('sdlPayroll').value);
+    if (!payroll) return;
+
+    fetch('/api/calculate/sdl', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({gross_payroll: payroll})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (handleGuestLimit(data)) return;
+        const resultDiv = document.getElementById('sdlResult');
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+            <div class="calc-result-row"><span class="calc-result-label">Gross Payroll</span><span class="calc-result-value">${data.gross_payroll.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">SDL (4%)</span><span class="calc-result-value">${data.sdl_amount.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">Total Cost</span><span class="calc-result-value" style="color:#dfff00">${data.total_cost.toLocaleString()} TZS</span></div>
+        `;
+    });
+}
+
+function calculateWCF() {
+    const payroll = parseFloat(document.getElementById('wcfPayroll').value);
+    if (!payroll) return;
+
+    fetch('/api/calculate/wcf', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({gross_payroll: payroll})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (handleGuestLimit(data)) return;
+        const resultDiv = document.getElementById('wcfResult');
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+            <div class="calc-result-row"><span class="calc-result-label">Gross Payroll</span><span class="calc-result-value">${data.gross_payroll.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">WCF (1%)</span><span class="calc-result-value">${data.wcf_amount.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">Total Cost</span><span class="calc-result-value" style="color:#dfff00">${data.total_cost.toLocaleString()} TZS</span></div>
+        `;
+    });
+}
+
+function calculateCorpTax() {
+    const income = parseFloat(document.getElementById('corpIncome').value);
+    if (!income) return;
+
+    fetch('/api/calculate/corporate_tax', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({taxable_income: income})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (handleGuestLimit(data)) return;
+        const resultDiv = document.getElementById('corpResult');
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+            <div class="calc-result-row"><span class="calc-result-label">Taxable Income</span><span class="calc-result-value">${data.taxable_income.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">Tax (30%)</span><span class="calc-result-value">${data.tax_amount.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">Net Income</span><span class="calc-result-value" style="color:#dfff00">${data.net_income.toLocaleString()} TZS</span></div>
+        `;
+    });
+}
+
+function calculateWithholding() {
+    const amount = parseFloat(document.getElementById('whAmount').value);
+    const type = document.getElementById('whType').value;
+    if (!amount) return;
+
+    fetch('/api/calculate/withholding', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({payment_amount: amount, payment_type: type})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (handleGuestLimit(data)) return;
+        const resultDiv = document.getElementById('whResult');
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+            <div class="calc-result-row"><span class="calc-result-label">Payment Amount</span><span class="calc-result-value">${data.payment_amount.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">Type</span><span class="calc-result-value">${data.payment_type}</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">WHT Rate</span><span class="calc-result-value">${data.withholding_rate}</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">WHT Amount</span><span class="calc-result-value">${data.withholding_amount.toLocaleString()} TZS</span></div>
+            <div class="calc-result-row"><span class="calc-result-label">Net Payment</span><span class="calc-result-value" style="color:#dfff00">${data.net_payment.toLocaleString()} TZS</span></div>
+        `;
+    });
+}
+
+// ========================
+// DOCUMENT FUNCTIONS
+// ========================
 let currentDocId = null;
 
 function handleFileUpload(input) {
@@ -1036,6 +1512,15 @@ function handleFileUpload(input) {
     .then(data => {
         clearInterval(progressInterval);
         progressBar.style.width = '100%';
+
+        if (handleGuestLimit(data)) {
+            setTimeout(() => {
+                uploadProgress.classList.add('hidden');
+                uploadArea.style.pointerEvents = 'auto';
+                uploadArea.style.opacity = '1';
+            }, 500);
+            return;
+        }
 
         setTimeout(() => {
             uploadProgress.classList.add('hidden');
@@ -1138,6 +1623,8 @@ function analyzeDocument() {
     .then(data => {
         const typingEl = document.getElementById('docTyping');
         if (typingEl) typingEl.remove();
+
+        if (handleGuestLimit(data)) return;
 
         if (data.error) {
             const errorMsg = document.createElement('div');
