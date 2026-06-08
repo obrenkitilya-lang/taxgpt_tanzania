@@ -958,10 +958,16 @@ body{
     </div>
 
     <div class="bottom-section" id="chatInput">
-        <form class="search-box" id="chatForm" onsubmit="return false;">
-            <input type="text" id="userInput" placeholder="Ask your tax question..." autocomplete="off">
+        <form class="search-box" id="chatForm" onsubmit="return false;" style="position:relative;">
+            <input type="file" id="chatFileInput" style="display:none;" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleChatFileUpload(this)">
+            <button type="button" onclick="document.getElementById('chatFileInput').click()" style="width:50px;background:transparent;border:none;color:#64748b;cursor:pointer;font-size:20px;padding:0 10px;" title="Upload document or picture">📎</button>
+            <input type="text" id="userInput" placeholder="Ask your tax question..." autocomplete="off" style="padding-left:10px;">
             <button type="submit" id="askBtn">Ask</button>
         </form>
+        <div id="chatFilePreview" style="display:none;max-width:700px;margin:8px auto 0;padding:8px 12px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#94a3b8;font-size:13px;">
+            <span id="chatFileName"></span>
+            <button onclick="clearChatFile()" style="background:none;border:none;color:#ef4444;cursor:pointer;margin-left:8px;font-size:16px;">×</button>
+        </div>
     </div>
 
 </div>
@@ -1683,6 +1689,52 @@ function deleteDocument(docId, event) {
 if (currentTool === 'documents') {
     window.addEventListener('DOMContentLoaded', loadDocuments);
 }
+
+// ========================
+// CHAT FILE UPLOAD
+// ========================
+let chatUploadedFile = null;
+
+function handleChatFileUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    chatUploadedFile = file;
+    document.getElementById('chatFilePreview').style.display = 'block';
+    document.getElementById('chatFileName').textContent = '📎 ' + file.name;
+    input.value = '';
+}
+
+function clearChatFile() {
+    chatUploadedFile = null;
+    document.getElementById('chatFilePreview').style.display = 'none';
+    document.getElementById('chatFileName').textContent = '';
+}
+
+function uploadChatFile() {
+    if (!chatUploadedFile) return Promise.resolve(null);
+
+    const formData = new FormData();
+    formData.append('file', chatUploadedFile);
+
+    return fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Upload error:', data.error);
+            return null;
+        }
+        return data.document;
+    })
+    .catch(err => {
+        console.error('Upload failed:', err);
+        return null;
+    });
+}
+
 </script>
 
 </body>
