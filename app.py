@@ -135,6 +135,26 @@ class TrainingDocument(db.Model):
 
 CORS(app)
 
+# Role-based access decorators
+def admin_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != 'admin':
+            return jsonify({"error": "Admin access required"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+def tax_professional_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role not in ['admin', 'tax_professional']:
+            return jsonify({"error": "Tax professional access required"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 # OpenAI client
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
