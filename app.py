@@ -338,7 +338,7 @@ def home():
 def admin_page():
     return send_file('frontend/index_fixed.html')
 
-@app.route('/<<tool>')
+@app.route('/<tool>')
 def tool_page(tool):
     valid_tools = ['tax_research', 'documents', 'calculators', 'deadlines', 'business_setup']
     if tool in valid_tools:
