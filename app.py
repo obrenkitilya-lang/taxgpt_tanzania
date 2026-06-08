@@ -34,8 +34,8 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
-    country = db.Column(db.String(50), default='Tanzania')  # Tanzania, Kenya, Uganda
-    role = db.Column(db.String(20), default='user')  # user, admin, tax_professional
+    country = db.Column(db.String(50), default='Tanzania')
+    role = db.Column(db.String(20), default='user')
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     is_guest = db.Column(db.Boolean, default=False)
 
@@ -114,7 +114,7 @@ class TrainingDocument(db.Model):
     title = db.Column(db.String(500), nullable=False)
     filename = db.Column(db.String(255), nullable=True)
     content_text = db.Column(db.Text, nullable=False)
-    doc_type = db.Column(db.String(100), nullable=False)  # income_tax_act, vat_act, ruling, guide, etc.
+    doc_type = db.Column(db.String(100), nullable=False)
     source = db.Column(db.String(200), nullable=False)
     jurisdiction = db.Column(db.String(50), default='Tanzania')
     uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
@@ -154,7 +154,6 @@ def tax_professional_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
 # OpenAI client
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
@@ -178,8 +177,6 @@ def get_client_ip():
     if request.headers.get('X-Forwarded-For'):
         return request.headers.get('X-Forwarded-For').split(',')[0].strip()
     return request.remote_addr or 'unknown'
-
-
 
 def track_visitor(page=None):
     try:
@@ -227,6 +224,15 @@ def check_guest_limit(activity_type, limit):
         return True, None
 
 # ========================
+# AUDIT LOG HELPER
+# ========================
+
+def log_audit(action, entity_type, entity_id):
+    """Simple audit logging. Expand later with AuditLog table if needed."""
+    user_id = current_user.id if current_user.is_authenticated else None
+    print(f"AUDIT: {action} on {entity_type} id={entity_id} by user={user_id}")
+
+# ========================
 # AUTH ROUTES
 # ========================
 
@@ -262,8 +268,18 @@ def signup():
         if User.query.filter_by(email=email).first():
             return jsonify({"error": "Email already registered"}), 400
 
+        # AUTO-ADMIN: First user ever becomes admin automatically
+        is_first_user = User.query.count() == 0
+        role = 'admin' if is_first_user else 'user'
+
         hashed_password = generate_password_hash(password)
-        user = User(email=email, password=hashed_password, country=country, is_guest=False)
+        user = User(
+            email=email, 
+            password=hashed_password, 
+            country=country, 
+            role=role,
+            is_guest=False
+        )
         db.session.add(user)
         db.session.commit()
 
@@ -272,7 +288,8 @@ def signup():
         return jsonify({
             "message": "Account created successfully",
             "email": user.email,
-            "country": user.country
+            "country": user.country,
+            "role": user.role
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -317,7 +334,11 @@ def api_logout():
 def home():
     return send_file('frontend/index_fixed.html')
 
-@app.route('/<tool>')
+@app.route('/admin')
+def admin_page():
+    return send_file('frontend/index_fixed.html')
+
+@app.route('/<<tool>')
 def tool_page(tool):
     valid_tools = ['tax_research', 'documents', 'calculators', 'deadlines', 'business_setup']
     if tool in valid_tools:
@@ -333,8 +354,8 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
             login_user(user)
-            return """<script>window.location.href='/';</script>"""
-        return """<script>alert('Invalid credentials');window.location.href='/login';</script>"""
+            return """<<script>window.location.href='/';</script>"""
+        return """<<script>alert('Invalid credentials');window.location.href='/login';</script>"""
 
     return """
 <!DOCTYPE html>
@@ -373,20 +394,20 @@ def signup_page():
         password = request.form.get("password", "")
 
         if not email or not password:
-            return """<script>alert('All fields required');window.location.href='/signup';</script>"""
+            return """<<script>alert('All fields required');window.location.href='/signup';</script>"""
 
         if len(password) < 6:
-            return """<script>alert('Password must be at least 6 characters');window.location.href='/signup';</script>"""
+            return """<<script>alert('Password must be at least 6 characters');window.location.href='/signup';</script>"""
 
         if User.query.filter_by(email=email).first():
-            return """<script>alert('Email already registered');window.location.href='/signup';</script>"""
+            return """<<script>alert('Email already registered');window.location.href='/signup';</script>"""
 
         hashed_password = generate_password_hash(password)
         user = User(email=email, password=hashed_password, is_guest=False)
         db.session.add(user)
         db.session.commit()
         login_user(user)
-        return """<script>window.location.href='/';</script>"""
+        return """<<script>window.location.href='/';</script>"""
 
     return """
 <!DOCTYPE html>
@@ -862,50 +883,53 @@ def analyze_document():
 
 def migrate_db():
     with app.app_context():
-        inspector = db.inspect(db.engine)
-        tables = inspector.get_table_names()
+        try:
+            inspector = db.inspect(db.engine)
+            tables = inspector.get_table_names()
 
-        if 'user' in tables:
-            columns = [c['name'] for c in inspector.get_columns('user')]
-            if 'created_at' not in columns:
-                db.session.execute(db.text("ALTER TABLE user ADD COLUMN created_at DATETIME"))
-                db.session.commit()
-                print("Migration: Added created_at to user")
-            if 'is_guest' not in columns:
-                db.session.execute(db.text("ALTER TABLE user ADD COLUMN is_guest BOOLEAN DEFAULT 0"))
-                db.session.commit()
-                print("Migration: Added is_guest to user")
+            if 'user' in tables:
+                columns = [c['name'] for c in inspector.get_columns('user')]
+                if 'created_at' not in columns:
+                    db.session.execute(db.text("ALTER TABLE user ADD COLUMN created_at DATETIME"))
+                    db.session.commit()
+                    print("Migration: Added created_at to user")
+                if 'is_guest' not in columns:
+                    db.session.execute(db.text("ALTER TABLE user ADD COLUMN is_guest BOOLEAN DEFAULT 0"))
+                    db.session.commit()
+                    print("Migration: Added is_guest to user")
 
-        if 'chat_session' in tables:
-            columns = [c['name'] for c in inspector.get_columns('chat_session')]
-            if 'user_id' not in columns:
-                db.session.execute(db.text("ALTER TABLE chat_session ADD COLUMN user_id INTEGER"))
-                db.session.commit()
-                print("Migration: Added user_id to chat_session")
+            if 'chat_session' in tables:
+                columns = [c['name'] for c in inspector.get_columns('chat_session')]
+                if 'user_id' not in columns:
+                    db.session.execute(db.text("ALTER TABLE chat_session ADD COLUMN user_id INTEGER"))
+                    db.session.commit()
+                    print("Migration: Added user_id to chat_session")
 
-        if 'document' in tables:
-            columns = [c['name'] for c in inspector.get_columns('document')]
-            if 'user_id' not in columns:
-                db.session.execute(db.text("ALTER TABLE document ADD COLUMN user_id INTEGER"))
-                db.session.commit()
-                print("Migration: Added user_id to document")
-            if 'content_text' not in columns:
-                db.session.execute(db.text("ALTER TABLE document ADD COLUMN content_text TEXT"))
-                db.session.commit()
-                print("Migration: Added content_text to document")
-            if 'session_id' not in columns:
-                db.session.execute(db.text("ALTER TABLE document ADD COLUMN session_id INTEGER"))
-                db.session.commit()
-                print("Migration: Added session_id to document")
+            if 'document' in tables:
+                columns = [c['name'] for c in inspector.get_columns('document')]
+                if 'user_id' not in columns:
+                    db.session.execute(db.text("ALTER TABLE document ADD COLUMN user_id INTEGER"))
+                    db.session.commit()
+                    print("Migration: Added user_id to document")
+                if 'content_text' not in columns:
+                    db.session.execute(db.text("ALTER TABLE document ADD COLUMN content_text TEXT"))
+                    db.session.commit()
+                    print("Migration: Added content_text to document")
+                if 'session_id' not in columns:
+                    db.session.execute(db.text("ALTER TABLE document ADD COLUMN session_id INTEGER"))
+                    db.session.commit()
+                    print("Migration: Added session_id to document")
 
-        db.create_all()
+            db.create_all()
+        except Exception as e:
+            print(f"Migration warning: {e}")
+            db.create_all()
 
 migrate_db()
 
 @app.route("/api/test")
 def test():
     return jsonify({"status": "ok"})
-
 
 # ========================
 # VISITOR ANALYTICS APIs
