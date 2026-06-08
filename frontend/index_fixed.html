@@ -1205,6 +1205,11 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
     })
     .then(response => {
         if (!response.ok) {
+            if (response.status === 403) {
+                return response.json().then(data => {
+                    throw new Error('403: ' + (data.error || 'Access denied'));
+                });
+            }
             throw new Error('HTTP ' + response.status);
         }
         const reader = response.body.getReader();
@@ -1282,11 +1287,23 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
     .catch(error => {
         console.error('Stream error:', error);
         isStreaming = false;
+        askBtn.disabled = false;
+
         const errorDiv = document.createElement('div');
         errorDiv.className = 'message ai-message';
-        errorDiv.textContent = 'Sorry, there was an error. Please check your connection and try again.';
+
+        // Check if it's a limit reached error
+        if (error.message && error.message.includes('403')) {
+            errorDiv.innerHTML = '<span style="color:#f87171;">🚫 You have reached the free usage limit. <a href="/signup" style="color:#dfff00;text-decoration:underline;cursor:pointer;">Sign up</a> for unlimited access or <a onclick="showLoginModal()" style="color:#dfff00;text-decoration:underline;cursor:pointer;">login</a> to your account.</span>';
+        } else if (error.message && error.message.includes('429')) {
+            errorDiv.innerHTML = '<span style="color:#f87171;">⏳ Too many requests. Please wait a moment and try again.</span>';
+        } else if (error.message && error.message.includes('401')) {
+            errorDiv.innerHTML = '<span style="color:#f87171;">🔒 Please <a onclick="showLoginModal()" style="color:#dfff00;text-decoration:underline;cursor:pointer;">login</a> to continue.</span>';
+        } else {
+            errorDiv.innerHTML = '<span style="color:#f87171;">😕 Sorry, something went wrong. Please check your connection and try again. If the problem persists, <a href="/signup" style="color:#dfff00;text-decoration:underline;cursor:pointer;">create an account</a> for better reliability.</span>';
+        }
+
         streamingDiv.parentNode.replaceChild(errorDiv, streamingDiv);
-        askBtn.disabled = false;
     });
 }
 
