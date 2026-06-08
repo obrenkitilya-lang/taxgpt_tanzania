@@ -21,6 +21,12 @@ app.secret_key = os.environ.get("SECRET_KEY", "taxgpt-secret-key-change-in-produ
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///taxgpt.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+# Session configuration for cross-domain persistence
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -133,7 +139,7 @@ class TrainingDocument(db.Model):
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M')
         }
 
-CORS(app)
+CORS(app, supports_credentials=True)
 
 # Role-based access decorators
 def admin_required(f):
@@ -283,7 +289,7 @@ def signup():
         db.session.add(user)
         db.session.commit()
 
-        login_user(user)
+        login_user(user, remember=True)
 
         return jsonify({
             "message": "Account created successfully",
@@ -309,7 +315,7 @@ def api_login():
         if not user or not check_password_hash(user.password, password):
             return jsonify({"error": "Invalid email or password"}), 401
 
-        login_user(user)
+        login_user(user, remember=True)
 
         return jsonify({
             "message": "Login successful",
@@ -353,7 +359,7 @@ def login():
 
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
-            login_user(user)
+            login_user(user, remember=True)
             return """<script>window.location.href='/';</script>"""
         return """<script>alert('Invalid credentials');window.location.href='/login';</script>"""
 
@@ -392,6 +398,7 @@ def signup_page():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+        country = request.form.get("country", "Tanzania").strip()
 
         if not email or not password:
             return """<script>alert('All fields required');window.location.href='/signup';</script>"""
@@ -402,11 +409,20 @@ def signup_page():
         if User.query.filter_by(email=email).first():
             return """<script>alert('Email already registered');window.location.href='/signup';</script>"""
 
+        if country not in ['Tanzania', 'Kenya', 'Uganda']:
+            return """<script>alert('Country must be Tanzania, Kenya, or Uganda');window.location.href='/signup';</script>"""
+
         hashed_password = generate_password_hash(password)
-        user = User(email=email, password=hashed_password, is_guest=False)
+        user = User(
+            email=email, 
+            password=hashed_password, 
+            country=country, 
+            role='user',
+            is_guest=False
+        )
         db.session.add(user)
         db.session.commit()
-        login_user(user)
+        login_user(user, remember=True)
         return """<script>window.location.href='/';</script>"""
 
     return """
@@ -417,7 +433,9 @@ def signup_page():
 <style>
 body{background:#020817;display:flex;justify-content:center;align-items:center;height:100vh;font-family:Arial;color:white;margin:0}
 .card{background:#07123a;padding:40px;border-radius:20px;width:400px}
-input{width:100%;padding:15px;margin-top:15px;background:#020817;border:1px solid #334155;color:white;border-radius:10px;box-sizing:border-box}
+input,select{width:100%;padding:15px;margin-top:15px;background:#020817;border:1px solid #334155;color:white;border-radius:10px;box-sizing:border-box}
+select{color:white;background:#020817}
+option{background:#07123a;color:white}
 button{width:100%;padding:15px;margin-top:20px;background:#d9ff00;border:none;border-radius:10px;font-weight:bold;cursor:pointer;font-size:16px}
 button:hover{background:#c8e600}
 </style>
@@ -432,6 +450,11 @@ button:hover{background:#c8e600}
 <form method="POST">
 <input name="email" placeholder="Email" type="email" required>
 <input name="password" placeholder="Password" type="password" required>
+<select name="country" required>
+<option value="Tanzania">Tanzania</option>
+<option value="Kenya">Kenya</option>
+<option value="Uganda">Uganda</option>
+</select>
 <button type="submit">Create Account</button>
 </form>
 </div>
@@ -772,7 +795,8 @@ def upload_document():
             try:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
-                    content_text += page.extract_text() + "\n"
+                    content_text += page.extract_text() + "
+"
             except Exception as e:
                 content_text = f"Could not extract text: {str(e)}"
         elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
@@ -859,7 +883,10 @@ def analyze_document():
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": TOOL_PROMPTS["documents"]},
-                {"role": "user", "content": f"Document content:\n{doc_content}\n\nQuestion: {question}"}
+                {"role": "user", "content": f"Document content:
+{doc_content}
+
+Question: {question}"}
             ]
         )
         answer = response.choices[0].message.content
@@ -932,39 +959,6 @@ def test():
     return jsonify({"status": "ok"})
 
 # ========================
-# TEMPORARY DB FIX ROUTE
-# ========================
-
-@app.route("/api/fix-db")
-def fix_db():
-    try:
-        inspector = db.inspect(db.engine)
-        columns = [c['name'] for c in inspector.get_columns('user')]
-
-        if 'country' not in columns:
-            db.session.execute(db.text("ALTER TABLE user ADD COLUMN country VARCHAR(50) DEFAULT 'Tanzania'"))
-            db.session.commit()
-            return jsonify({"message": "Added country column successfully"})
-        else:
-            return jsonify({"message": "country column already exists"})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# ========================
-# TEMPORARY MAKE ADMIN ROUTE
-# ========================
-
-@app.route("/api/make-admin/<email>")
-def make_admin(email):
-    user = User.query.filter_by(email=email.lower()).first()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-    user.role = 'admin'
-    db.session.commit()
-    return jsonify({"message": f"{email} is now admin"})
-
-# ========================
 # VISITOR ANALYTICS APIs
 # ========================
 
@@ -1005,10 +999,36 @@ def admin_users_detailed():
             "country": u.country,
             "role": u.role,
             "is_guest": u.is_guest,
-            "created_at": u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else None,
+            "created_at": u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else None,
             "session_count": ChatSession.query.filter_by(user_id=u.id).count(),
             "document_count": Document.query.filter_by(user_id=u.id).count()
         } for u in users])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/users/<int:user_id>/role", methods=["PUT"])
+@admin_required
+def update_user_role(user_id):
+    try:
+        data = request.get_json()
+        new_role = data.get("role")
+
+        if new_role not in ['user', 'admin', 'tax_professional']:
+            return jsonify({"error": "Invalid role. Must be user, admin, or tax_professional"}), 400
+
+        user = User.query.get_or_404(user_id)
+        old_role = user.role
+        user.role = new_role
+        db.session.commit()
+
+        log_audit("update_role", "user", user_id)
+
+        return jsonify({
+            "message": f"User role updated from {old_role} to {new_role}",
+            "user_id": user.id,
+            "email": user.email,
+            "new_role": new_role
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1043,7 +1063,8 @@ def upload_training_doc():
             try:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
-                    content_text += page.extract_text() + "\n"
+                    content_text += page.extract_text() + "
+"
             except Exception as e:
                 content_text = "Could not extract text: " + str(e)
         else:

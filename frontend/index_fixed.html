@@ -8,25 +8,26 @@
 // ========================
 // CHAT DOCUMENT UPLOAD
 // ========================
-function handleChatFileUpload(input) {
+async function handleChatFileUpload(input) {
     const file = input.files[0];
     if (!file) return;
 
     const formData = new FormData();
     formData.append('file', file);
 
-    // Show upload indicator
     const askBtn = document.getElementById('askBtn');
     const originalText = askBtn.textContent;
     askBtn.textContent = 'Uploading...';
     askBtn.disabled = true;
 
-    fetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+        const response = await fetch('/api/documents/upload', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+
+        const data = await response.json();
         askBtn.textContent = originalText;
         askBtn.disabled = false;
 
@@ -41,7 +42,7 @@ function handleChatFileUpload(input) {
         userInput.value = docRef + userInput.value;
         userInput.focus();
 
-        // Show success message in chat area
+        // Show document in chat area
         const chatArea = document.getElementById('chatPage');
         const welcomeMsg = document.getElementById('welcomeMsg');
         if (welcomeMsg) welcomeMsg.style.display = 'none';
@@ -52,19 +53,46 @@ function handleChatFileUpload(input) {
         chatArea.appendChild(docMessage);
         chatArea.scrollTop = chatArea.scrollHeight;
 
-        // Store document ID for analysis
+        // Store document ID for AI analysis
         window.currentChatDocId = data.document.id;
+        window.currentChatDocContent = data.content_preview;
 
-    })
-    .catch(err => {
+    } catch (err) {
         askBtn.textContent = originalText;
         askBtn.disabled = false;
         console.error('Upload error:', err);
         alert('Failed to upload document');
-    });
+    }
 
-    // Clear input
     input.value = '';
+}
+
+
+// ========================
+// ADMIN USER ROLE MANAGEMENT
+// ========================
+async function updateUserRole(userId, newRole) {
+    if (!confirm('Are you sure you want to change this user\'s role to ' + newRole + '?')) return;
+
+    try {
+        const response = await fetch('/api/admin/users/' + userId + '/role', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ role: newRole })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            alert('User role updated successfully!');
+            loadUsers();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to update role'));
+        }
+    } catch (err) {
+        console.error('Update role error:', err);
+        alert('Failed to update user role');
+    }
 }
 
 </script>
@@ -798,8 +826,8 @@ body{
     display:none !important;
 }
 </style>
-<base target="_blank">
-<base target="_blank">
+<base >
+<base >
 <base target="_blank">
 </head>
 
@@ -1206,8 +1234,8 @@ body{
 
     <div class="bottom-section" id="chatInput">
         <form class="search-box" id="chatForm" onsubmit="return false;">
-            <input type="file" id="chat-file-input" style="display:none" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleChatFileUpload(this)">
-            <button type="button" onclick="document.getElementById('chat-file-input').click()" style="background:transparent;border:none;color:#dfff00;font-size:20px;cursor:pointer;padding:0 15px;" title="Attach document">📎</button>
+            <input type="file" id="chatFileInput" style="display:none" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleChatFileUpload(this)">
+            <button type="button" onclick="document.getElementById('chatFileInput').click()" style="background:transparent;border:none;color:#dfff00;font-size:20px;cursor:pointer;padding:0 10px;" title="Attach document">📎</button>
             <input type="text" id="userInput" placeholder="Ask your tax question..." autocomplete="off">
             <button type="submit" id="askBtn">Ask</button>
         </form>
@@ -2640,25 +2668,26 @@ function loadAdminDashboard() {
 // ========================
 // CHAT DOCUMENT UPLOAD
 // ========================
-function handleChatFileUpload(input) {
+async function handleChatFileUpload(input) {
     const file = input.files[0];
     if (!file) return;
 
     const formData = new FormData();
     formData.append('file', file);
 
-    // Show upload indicator
     const askBtn = document.getElementById('askBtn');
     const originalText = askBtn.textContent;
     askBtn.textContent = 'Uploading...';
     askBtn.disabled = true;
 
-    fetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+        const response = await fetch('/api/documents/upload', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+
+        const data = await response.json();
         askBtn.textContent = originalText;
         askBtn.disabled = false;
 
@@ -2673,7 +2702,7 @@ function handleChatFileUpload(input) {
         userInput.value = docRef + userInput.value;
         userInput.focus();
 
-        // Show success message in chat area
+        // Show document in chat area
         const chatArea = document.getElementById('chatPage');
         const welcomeMsg = document.getElementById('welcomeMsg');
         if (welcomeMsg) welcomeMsg.style.display = 'none';
@@ -2684,19 +2713,46 @@ function handleChatFileUpload(input) {
         chatArea.appendChild(docMessage);
         chatArea.scrollTop = chatArea.scrollHeight;
 
-        // Store document ID for analysis
+        // Store document ID for AI analysis
         window.currentChatDocId = data.document.id;
+        window.currentChatDocContent = data.content_preview;
 
-    })
-    .catch(err => {
+    } catch (err) {
         askBtn.textContent = originalText;
         askBtn.disabled = false;
         console.error('Upload error:', err);
         alert('Failed to upload document');
-    });
+    }
 
-    // Clear input
     input.value = '';
+}
+
+
+// ========================
+// ADMIN USER ROLE MANAGEMENT
+// ========================
+async function updateUserRole(userId, newRole) {
+    if (!confirm('Are you sure you want to change this user\'s role to ' + newRole + '?')) return;
+
+    try {
+        const response = await fetch('/api/admin/users/' + userId + '/role', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ role: newRole })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            alert('User role updated successfully!');
+            loadUsers();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to update role'));
+        }
+    } catch (err) {
+        console.error('Update role error:', err);
+        alert('Failed to update user role');
+    }
 }
 
 </script>
