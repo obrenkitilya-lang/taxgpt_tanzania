@@ -1063,6 +1063,73 @@ body{
                 </div>
             </div>
 
+            <!-- Tax Precedent Engine -->
+            <div class="calc-card" style="margin-bottom:20px;">
+                <h3>⚖️ Tax Precedent Engine</h3>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                    <input type="text" class="calc-input" id="precedentCaseNumber" placeholder="Case Number (e.g., TRA-2024-001)">
+                    <input type="text" class="calc-input" id="precedentTitle" placeholder="Case Title">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                    <select class="calc-input" id="precedentCaseType" style="background:#020817; color:white;">
+                        <option value="audit_finding">TRA Audit Finding</option>
+                        <option value="objection">Objection Decision</option>
+                        <option value="appeals_board">Appeals Board Decision</option>
+                        <option value="appeals_tribunal">Appeals Tribunal Decision</option>
+                        <option value="court_judgment">Court Judgment</option>
+                    </select>
+                    <select class="calc-input" id="precedentJurisdiction" style="background:#020817; color:white;">
+                        <option value="Tanzania">🇹🇿 Tanzania</option>
+                        <option value="Kenya">🇰🇪 Kenya</option>
+                        <option value="Uganda">🇺🇬 Uganda</option>
+                    </select>
+                </div>
+                <input type="text" class="calc-input" id="precedentCourt" placeholder="Court Name (e.g., High Court of Tanzania)">
+                <input type="text" class="calc-input" id="precedentTaxpayer" placeholder="Taxpayer Name">
+                <textarea class="calc-input" id="precedentIssue" placeholder="Tax Issue" style="min-height:60px;"></textarea>
+                <textarea class="calc-input" id="precedentDecision" placeholder="Decision Summary" style="min-height:80px;"></textarea>
+                <textarea class="calc-input" id="precedentHoldings" placeholder="Key Holdings" style="min-height:60px;"></textarea>
+                <input type="text" class="calc-input" id="precedentLaw" placeholder="Statutory References (e.g., Section 12(1) of Income Tax Act)">
+                <button class="calc-btn" onclick="addTaxPrecedent()">➕ Add Tax Precedent</button>
+                <div id="precedentAddResult" class="hidden" style="margin-top:12px; padding:12px; background:#020817; border-radius:8px; color:#94a3b8;"></div>
+            </div>
+
+            <!-- Tax Precedents List -->
+            <div class="calc-card" style="margin-bottom:20px;">
+                <h3>📋 Tax Precedents Database</h3>
+                <div style="display:flex; gap:12px; margin-bottom:16px;">
+                    <input type="text" class="calc-input" id="precedentSearch" placeholder="Search precedents..." style="flex:1;">
+                    <button class="calc-btn" onclick="searchPrecedents()" style="width:120px;">🔍 Search</button>
+                </div>
+                <div id="adminPrecedentsList" style="max-height:300px; overflow-y:auto;">
+                    <p style="color:#64748b; text-align:center;">Loading precedents...</p>
+                </div>
+            </div>
+
+            <!-- Learning Repository -->
+            <div class="calc-card" style="margin-bottom:20px;">
+                <h3>🧠 Learning Repository</h3>
+                <p style="color:#64748b; margin-bottom:16px;">AI interactions stored for continuous improvement</p>
+                <div id="adminLearningRepo" style="max-height:300px; overflow-y:auto;">
+                    <p style="color:#64748b; text-align:center;">Loading learning data...</p>
+                </div>
+            </div>
+
+            <!-- Jurisdiction Management -->
+            <div class="calc-card" style="margin-bottom:20px;">
+                <h3>🌍 Jurisdiction Management</h3>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:16px;">
+                    <input type="text" class="calc-input" id="jurisdictionCode" placeholder="Code (e.g., TZ)">
+                    <input type="text" class="calc-input" id="jurisdictionName" placeholder="Name (e.g., Tanzania)">
+                    <input type="text" class="calc-input" id="jurisdictionCurrency" placeholder="Currency (e.g., TZS)">
+                    <input type="text" class="calc-input" id="jurisdictionAuthority" placeholder="Tax Authority (e.g., TRA)">
+                </div>
+                <button class="calc-btn" onclick="addJurisdiction()">➕ Add Jurisdiction</button>
+                <div id="adminJurisdictionsList" style="margin-top:16px; max-height:200px; overflow-y:auto;">
+                    <p style="color:#64748b; text-align:center;">Loading jurisdictions...</p>
+                </div>
+            </div>
+
             <!-- Audit Logs -->
             <div class="calc-card">
                 <h3>📝 Audit Logs</h3>
@@ -2210,6 +2277,288 @@ function deleteTrainingDoc(id) {
     fetch('/api/admin/training-docs/' + id, {method: 'DELETE'})
     .then(() => loadAdminTrainingDocs())
     .catch(err => console.error('Delete error:', err));
+}
+
+
+// ========================
+// TAX PRECEDENT ENGINE (Admin Only)
+// ========================
+
+function addTaxPrecedent() {
+    const caseNumber = document.getElementById('precedentCaseNumber').value.trim();
+    const title = document.getElementById('precedentTitle').value.trim();
+    const caseType = document.getElementById('precedentCaseType').value;
+    const jurisdiction = document.getElementById('precedentJurisdiction').value;
+    const court = document.getElementById('precedentCourt').value.trim();
+    const taxpayer = document.getElementById('precedentTaxpayer').value.trim();
+    const issue = document.getElementById('precedentIssue').value.trim();
+    const decision = document.getElementById('precedentDecision').value.trim();
+    const holdings = document.getElementById('precedentHoldings').value.trim();
+    const law = document.getElementById('precedentLaw').value.trim();
+    const resultDiv = document.getElementById('precedentAddResult');
+
+    if (!caseNumber || !title || !issue || !decision) {
+        resultDiv.textContent = 'Please fill in required fields (Case Number, Title, Issue, Decision)';
+        resultDiv.classList.remove('hidden');
+        return;
+    }
+
+    resultDiv.textContent = 'Adding...';
+    resultDiv.classList.remove('hidden');
+
+    fetch('/api/precedents', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            case_number: caseNumber,
+            title: title,
+            case_type: caseType,
+            jurisdiction: jurisdiction,
+            court_name: court,
+            taxpayer_name: taxpayer,
+            tax_issue: issue,
+            decision_summary: decision,
+            key_holdings: holdings,
+            statutory_references: law
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            resultDiv.textContent = 'Error: ' + data.error;
+        } else {
+            resultDiv.textContent = 'Precedent added successfully!';
+            // Clear form
+            document.getElementById('precedentCaseNumber').value = '';
+            document.getElementById('precedentTitle').value = '';
+            document.getElementById('precedentCourt').value = '';
+            document.getElementById('precedentTaxpayer').value = '';
+            document.getElementById('precedentIssue').value = '';
+            document.getElementById('precedentDecision').value = '';
+            document.getElementById('precedentHoldings').value = '';
+            document.getElementById('precedentLaw').value = '';
+            loadAdminPrecedents();
+        }
+    })
+    .catch(err => {
+        resultDiv.textContent = 'Error: ' + err.message;
+    });
+}
+
+function loadAdminPrecedents() {
+    const list = document.getElementById('adminPrecedentsList');
+    fetch('/api/precedents')
+    .then(r => r.json())
+    .then(precedents => {
+        if (precedents.length === 0) {
+            list.innerHTML = '<p style="color:#64748b; text-align:center;">No precedents in database</p>';
+            return;
+        }
+
+        list.innerHTML = '';
+        precedents.forEach(p => {
+            const div = document.createElement('div');
+            div.style.cssText = 'padding:12px; border-bottom:1px solid #1e293b;';
+            div.innerHTML = '<div style="display:flex; justify-content:space-between;"><div style="color:white; font-weight:bold;">' + escapeHtml(p.case_number) + '</div><span style="color:#dfff00; font-size:12px;">' + p.case_type + '</span></div>' +
+                '<div style="color:#94a3b8; font-size:14px; margin-top:4px;">' + escapeHtml(p.title) + '</div>' +
+                '<div style="color:#64748b; font-size:12px; margin-top:4px;">' + p.jurisdiction + ' | ' + (p.date_decided || 'No date') + '</div>';
+            list.appendChild(div);
+        });
+    })
+    .catch(err => {
+        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error loading precedents</p>';
+    });
+}
+
+function searchPrecedents() {
+    const query = document.getElementById('precedentSearch').value.trim();
+    if (!query) {
+        loadAdminPrecedents();
+        return;
+    }
+
+    const list = document.getElementById('adminPrecedentsList');
+    list.innerHTML = '<p style="color:#64748b; text-align:center;">Searching...</p>';
+
+    fetch('/api/precedents/search', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({query: query})
+    })
+    .then(r => r.json())
+    .then(precedents => {
+        if (precedents.length === 0) {
+            list.innerHTML = '<p style="color:#64748b; text-align:center;">No precedents found</p>';
+            return;
+        }
+
+        list.innerHTML = '';
+        precedents.forEach(p => {
+            const div = document.createElement('div');
+            div.style.cssText = 'padding:12px; border-bottom:1px solid #1e293b;';
+            div.innerHTML = '<div style="color:white; font-weight:bold;">' + escapeHtml(p.case_number) + '</div>' +
+                '<div style="color:#94a3b8; font-size:14px;">' + escapeHtml(p.title) + '</div>';
+            list.appendChild(div);
+        });
+    })
+    .catch(err => {
+        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error searching</p>';
+    });
+}
+
+// ========================
+// LEARNING REPOSITORY (Admin Only)
+// ========================
+
+function loadAdminLearningRepo() {
+    const list = document.getElementById('adminLearningRepo');
+    // For now, show a placeholder - this would connect to /api/admin/learning-stats
+    list.innerHTML = '<div style="text-align:center; padding:20px;">' +
+        '<div style="color:#64748b; margin-bottom:12px;">Learning Repository stores AI interactions for continuous improvement</div>' +
+        '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">' +
+        '<div style="background:#0f172a; padding:12px; border-radius:8px;"><div style="color:#dfff00; font-size:24px; font-weight:bold;">-</div><div style="color:#94a3b8; font-size:12px;">Total Interactions</div></div>' +
+        '<div style="background:#0f172a; padding:12px; border-radius:8px;"><div style="color:#dfff00; font-size:24px; font-weight:bold;">-</div><div style="color:#94a3b8; font-size:12px;">Expert Corrections</div></div>' +
+        '<div style="background:#0f172a; padding:12px; border-radius:8px;"><div style="color:#dfff00; font-size:24px; font-weight:bold;">-</div><div style="color:#94a3b8; font-size:12px;">Verified Answers</div></div>' +
+        '</div></div>';
+}
+
+// ========================
+// JURISDICTION MANAGEMENT (Admin Only)
+// ========================
+
+function addJurisdiction() {
+    const code = document.getElementById('jurisdictionCode').value.trim().toUpperCase();
+    const name = document.getElementById('jurisdictionName').value.trim();
+    const currency = document.getElementById('jurisdictionCurrency').value.trim().toUpperCase();
+    const authority = document.getElementById('jurisdictionAuthority').value.trim();
+
+    if (!code || !name || !currency || !authority) {
+        alert('Please fill in all fields');
+        return;
+    }
+
+    fetch('/api/jurisdictions', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            code: code,
+            name: name,
+            currency: currency,
+            tax_authority: authority
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            alert('Jurisdiction added!');
+            document.getElementById('jurisdictionCode').value = '';
+            document.getElementById('jurisdictionName').value = '';
+            document.getElementById('jurisdictionCurrency').value = '';
+            document.getElementById('jurisdictionAuthority').value = '';
+            loadAdminJurisdictions();
+        }
+    })
+    .catch(err => alert('Error: ' + err.message));
+}
+
+function loadAdminJurisdictions() {
+    const list = document.getElementById('adminJurisdictionsList');
+    fetch('/api/jurisdictions')
+    .then(r => r.json())
+    .then(jurisdictions => {
+        if (jurisdictions.length === 0) {
+            list.innerHTML = '<p style="color:#64748b; text-align:center;">No jurisdictions configured</p>';
+            return;
+        }
+
+        list.innerHTML = '';
+        jurisdictions.forEach(j => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #1e293b;';
+            div.innerHTML = '<div><span style="color:#dfff00; font-weight:bold;">' + j.code + '</span> <span style="color:white;">' + j.name + '</span> <span style="color:#64748b;">(' + j.currency + ' | ' + j.tax_authority + ')</span></div>' +
+                '<span style="color:#22c55e; font-size:12px;">' + (j.active ? 'Active' : 'Inactive') + '</span>';
+            list.appendChild(div);
+        });
+    })
+    .catch(err => {
+        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error loading jurisdictions</p>';
+    });
+}
+
+// Update loadAdminDashboard to include new sections
+function loadAdminDashboard() {
+    // Load visitor stats
+    fetch('/api/admin/visitors')
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('adminTotalVisitors').textContent = data.total_visitors || 0;
+        document.getElementById('adminTotalVisits').textContent = data.total_visits || 0;
+        document.getElementById('adminTodayVisitors').textContent = data.today_visitors || 0;
+        document.getElementById('adminTodayUnique').textContent = data.today_unique || 0;
+
+        // Country stats
+        const countryDiv = document.getElementById('adminCountryStats');
+        if (data.country_stats && data.country_stats.length > 0) {
+            countryDiv.innerHTML = '';
+            data.country_stats.forEach(stat => {
+                const div = document.createElement('div');
+                div.style.cssText = 'background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:12px; text-align:center;';
+                div.innerHTML = '<div style="color:#dfff00; font-size:24px; font-weight:bold;">' + stat.count + '</div><div style="color:#94a3b8; font-size:12px;">' + stat.country + '</div>';
+                countryDiv.appendChild(div);
+            });
+        } else {
+            countryDiv.innerHTML = '<p style="color:#64748b; text-align:center;">No country data</p>';
+        }
+
+        // Recent visitors
+        const recentDiv = document.getElementById('adminRecentVisitors');
+        if (data.recent_visitors && data.recent_visitors.length > 0) {
+            recentDiv.innerHTML = '';
+            data.recent_visitors.forEach(v => {
+                const div = document.createElement('div');
+                div.style.cssText = 'display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #1e293b; font-size:13px;';
+                div.innerHTML = '<span style="color:#94a3b8;">' + v.time + '</span> <span style="color:white;">' + v.ip + '</span> <span style="color:#64748b;">' + (v.is_logged_in ? '👤 Logged In' : '👤 Guest') + '</span> <span style="color:#dfff00;">' + (v.country || 'Unknown') + '</span>';
+                recentDiv.appendChild(div);
+            });
+        } else {
+            recentDiv.innerHTML = '<p style="color:#64748b; text-align:center;">No recent visitors</p>';
+        }
+    })
+    .catch(err => console.error('Visitor stats error:', err));
+
+    // Load user stats
+    fetch('/api/admin/stats')
+    .then(r => r.json())
+    .then(data => {
+        if (data.users) {
+            document.getElementById('adminTotalUsers').textContent = data.users.total || 0;
+            document.getElementById('adminTotalSessions').textContent = data.activity.sessions || 0;
+        }
+    })
+    .catch(err => console.error('Admin stats error:', err));
+
+    // Load detailed users
+    loadAdminUsersDetailed();
+
+    // Load training documents
+    loadAdminTrainingDocs();
+
+    // Load tax precedents
+    loadAdminPrecedents();
+
+    // Load learning repository
+    loadAdminLearningRepo();
+
+    // Load jurisdictions
+    loadAdminJurisdictions();
+
+    // Load feedback stats
+    loadAdminFeedbackStats();
+
+    // Load audit logs
+    loadAdminAuditLogs();
 }
 
 </script>
