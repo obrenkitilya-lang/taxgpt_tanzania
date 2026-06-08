@@ -354,8 +354,8 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
             login_user(user)
-            return """<<script>window.location.href='/';</script>"""
-        return """<<script>alert('Invalid credentials');window.location.href='/login';</script>"""
+            return """<script>window.location.href='/';</script>"""
+        return """<script>alert('Invalid credentials');window.location.href='/login';</script>"""
 
     return """
 <!DOCTYPE html>
@@ -394,20 +394,20 @@ def signup_page():
         password = request.form.get("password", "")
 
         if not email or not password:
-            return """<<script>alert('All fields required');window.location.href='/signup';</script>"""
+            return """<script>alert('All fields required');window.location.href='/signup';</script>"""
 
         if len(password) < 6:
-            return """<<script>alert('Password must be at least 6 characters');window.location.href='/signup';</script>"""
+            return """<script>alert('Password must be at least 6 characters');window.location.href='/signup';</script>"""
 
         if User.query.filter_by(email=email).first():
-            return """<<script>alert('Email already registered');window.location.href='/signup';</script>"""
+            return """<script>alert('Email already registered');window.location.href='/signup';</script>"""
 
         hashed_password = generate_password_hash(password)
         user = User(email=email, password=hashed_password, is_guest=False)
         db.session.add(user)
         db.session.commit()
         login_user(user)
-        return """<<script>window.location.href='/';</script>"""
+        return """<script>window.location.href='/';</script>"""
 
     return """
 <!DOCTYPE html>
@@ -772,7 +772,8 @@ def upload_document():
             try:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
-                    content_text += page.extract_text() + "\n"
+                    content_text += page.extract_text() + "
+"
             except Exception as e:
                 content_text = f"Could not extract text: {str(e)}"
         elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
@@ -859,7 +860,10 @@ def analyze_document():
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": TOOL_PROMPTS["documents"]},
-                {"role": "user", "content": f"Document content:\n{doc_content}\n\nQuestion: {question}"}
+                {"role": "user", "content": f"Document content:
+{doc_content}
+
+Question: {question}"}
             ]
         )
         answer = response.choices[0].message.content
@@ -940,16 +944,29 @@ def fix_db():
     try:
         inspector = db.inspect(db.engine)
         columns = [c['name'] for c in inspector.get_columns('user')]
-        
+
         if 'country' not in columns:
             db.session.execute(db.text("ALTER TABLE user ADD COLUMN country VARCHAR(50) DEFAULT 'Tanzania'"))
             db.session.commit()
             return jsonify({"message": "Added country column successfully"})
         else:
             return jsonify({"message": "country column already exists"})
-            
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# ========================
+# TEMPORARY MAKE ADMIN ROUTE
+# ========================
+
+@app.route("/api/make-admin/<email>")
+def make_admin(email):
+    user = User.query.filter_by(email=email.lower()).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    user.role = 'admin'
+    db.session.commit()
+    return jsonify({"message": f"{email} is now admin"})
 
 # ========================
 # VISITOR ANALYTICS APIs
@@ -992,7 +1009,7 @@ def admin_users_detailed():
             "country": u.country,
             "role": u.role,
             "is_guest": u.is_guest,
-            "created_at": u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else None,
+            "created_at": u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else None,
             "session_count": ChatSession.query.filter_by(user_id=u.id).count(),
             "document_count": Document.query.filter_by(user_id=u.id).count()
         } for u in users])
@@ -1030,7 +1047,8 @@ def upload_training_doc():
             try:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
-                    content_text += page.extract_text() + "\n"
+                    content_text += page.extract_text() + "
+"
             except Exception as e:
                 content_text = "Could not extract text: " + str(e)
         else:
