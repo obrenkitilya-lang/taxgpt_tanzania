@@ -859,10 +859,7 @@ def analyze_document():
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": TOOL_PROMPTS["documents"]},
-                {"role": "user", "content": f"Document content:
-{doc_content}
-
-Question: {question}"}
+                {"role": "user", "content": f"Document content:\n{doc_content}\n\nQuestion: {question}"}
             ]
         )
         answer = response.choices[0].message.content
