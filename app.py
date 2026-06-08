@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, Response, stream_with_context, abort
+from flask import Flask, request, jsonify, send_file, Response, stream_with_context
 from flask_cors import CORS
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -11,9 +11,6 @@ import tempfile
 import PyPDF2
 import json
 from datetime import datetime, timedelta
-import requests
-from bs4 import BeautifulSoup
-import re
 
 # Load environment variables
 load_dotenv()
@@ -37,6 +34,8 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
+    country = db.Column(db.String(50), default='Tanzania')  # Tanzania, Kenya, Uganda
+    role = db.Column(db.String(20), default='user')  # user, admin, tax_professional
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     is_guest = db.Column(db.Boolean, default=False)
 
@@ -45,7 +44,7 @@ class User(db.Model, UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(User, int(user_id))
+    return User.query.get(int(user_id))
 
 class ChatSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -100,22 +99,37 @@ class GuestActivity(db.Model):
     activity_type = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
-class Article(db.Model):
+class VisitorLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(db.String(45), nullable=False)
+    user_agent = db.Column(db.String(500), nullable=True)
+    page_visited = db.Column(db.String(200), nullable=True)
+    is_logged_in = db.Column(db.Boolean, default=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    country = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+class TrainingDocument(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(500), nullable=False)
-    url = db.Column(db.String(1000), nullable=True)
+    filename = db.Column(db.String(255), nullable=True)
+    content_text = db.Column(db.Text, nullable=False)
+    doc_type = db.Column(db.String(100), nullable=False)  # income_tax_act, vat_act, ruling, guide, etc.
     source = db.Column(db.String(200), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    category = db.Column(db.String(100), nullable=True)
+    jurisdiction = db.Column(db.String(50), default='Tanzania')
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     def to_dict(self):
         return {
             'id': self.id,
             'title': self.title,
-            'url': self.url,
+            'filename': self.filename,
+            'doc_type': self.doc_type,
             'source': self.source,
-            'category': self.category,
+            'jurisdiction': self.jurisdiction,
+            'verified': self.verified,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M')
         }
 
@@ -137,30 +151,55 @@ TOOL_PROMPTS = {
 
 # Guest limits
 GUEST_CHAT_LIMIT = 10
-GUEST_DOCUMENT_LIMIT = 1
-GUEST_CALCULATOR_LIMIT = 3
+GUEST_DOCUMENT_LIMIT = 2
+GUEST_CALCULATOR_LIMIT = 10
 
 def get_client_ip():
     if request.headers.get('X-Forwarded-For'):
         return request.headers.get('X-Forwarded-For').split(',')[0].strip()
     return request.remote_addr or 'unknown'
 
+
+
+def track_visitor(page=None):
+    try:
+        ip = get_client_ip()
+        user_agent = request.headers.get("User-Agent", "")[:500]
+
+        visitor = VisitorLog(
+            ip_address=ip,
+            user_agent=user_agent,
+            page_visited=page or request.path,
+            is_logged_in=current_user.is_authenticated,
+            user_id=current_user.id if current_user.is_authenticated else None,
+            country=current_user.country if current_user.is_authenticated else None
+        )
+        db.session.add(visitor)
+        db.session.commit()
+    except Exception as e:
+        print("Visitor tracking error: " + str(e))
+
 def check_guest_limit(activity_type, limit):
     if current_user.is_authenticated:
         return True, None
+
     try:
         ip = get_client_ip()
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
         count = GuestActivity.query.filter(
             GuestActivity.ip_address == ip,
             GuestActivity.activity_type == activity_type,
             GuestActivity.created_at >= today
         ).count()
+
         if count >= limit:
             return False, "Guest limit reached. You have used " + str(limit) + " " + activity_type + " actions today. Please sign up for unlimited access."
+
         activity = GuestActivity(ip_address=ip, activity_type=activity_type)
         db.session.add(activity)
         db.session.commit()
+
         remaining = limit - count - 1
         return True, remaining
     except Exception as e:
@@ -177,6 +216,8 @@ def get_current_user():
         return jsonify({
             "logged_in": True,
             "email": current_user.email,
+            "country": current_user.country,
+            "role": current_user.role,
             "is_guest": current_user.is_guest
         })
     return jsonify({"logged_in": False})
@@ -187,6 +228,7 @@ def signup():
         data = request.get_json()
         email = data.get("email", "").strip().lower()
         password = data.get("password", "")
+        country = data.get("country", "Tanzania").strip()
 
         if not email or not password:
             return jsonify({"error": "Email and password are required"}), 400
@@ -194,11 +236,14 @@ def signup():
         if len(password) < 6:
             return jsonify({"error": "Password must be at least 6 characters"}), 400
 
+        if country not in ['Tanzania', 'Kenya', 'Uganda']:
+            return jsonify({"error": "Country must be Tanzania, Kenya, or Uganda"}), 400
+
         if User.query.filter_by(email=email).first():
             return jsonify({"error": "Email already registered"}), 400
 
         hashed_password = generate_password_hash(password)
-        user = User(email=email, password=hashed_password, is_guest=False)
+        user = User(email=email, password=hashed_password, country=country, is_guest=False)
         db.session.add(user)
         db.session.commit()
 
@@ -206,7 +251,8 @@ def signup():
 
         return jsonify({
             "message": "Account created successfully",
-            "email": user.email
+            "email": user.email,
+            "country": user.country
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -230,7 +276,9 @@ def api_login():
 
         return jsonify({
             "message": "Login successful",
-            "email": user.email
+            "email": user.email,
+            "country": user.country,
+            "role": user.role
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -368,7 +416,7 @@ def get_sessions():
 @app.route("/api/sessions/<int:session_id>", methods=["GET"])
 def get_session_messages(session_id):
     try:
-        session = db.session.get(ChatSession, session_id) or abort(404)
+        session = ChatSession.query.get_or_404(session_id)
         if current_user.is_authenticated and session.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 
@@ -380,7 +428,7 @@ def get_session_messages(session_id):
 @app.route("/api/sessions/<int:session_id>", methods=["DELETE"])
 def delete_session(session_id):
     try:
-        session = db.session.get(ChatSession, session_id) or abort(404)
+        session = ChatSession.query.get_or_404(session_id)
         if current_user.is_authenticated and session.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 
@@ -411,21 +459,8 @@ def ask():
 
         system_prompt = TOOL_PROMPTS.get(tool, TOOL_PROMPTS["tax_research"])
 
-        # Add instruction to not mention cutoff dates
-        system_prompt += " You are a Tanzanian tax expert with current knowledge. Do not mention knowledge cutoff dates. Answer based on current Tanzanian tax laws and regulations. Always provide exact tax rates and figures without rounding up. Use precise percentages (e.g., 18.0%, 30.0%, 4.0%, 1.0%) and exact amounts. Do not approximate or round figures."
-
-        # Get enhanced context from database + online search
-        enhanced_context = get_enhanced_context(question, tool)
-        if enhanced_context:
-            system_prompt += "\n\nUse the following reference information:\n" + enhanced_context[:4000]
-
-        # Get enhanced context from database + online search
-        enhanced_context = get_enhanced_context(question, tool)
-        if enhanced_context:
-            system_prompt += "\n\nUse the following reference information to answer accurately:\n" + enhanced_context[:4000]
-
         if session_id:
-            chat_session = db.session.get(ChatSession, session_id)
+            chat_session = ChatSession.query.get(session_id)
             if not chat_session:
                 chat_session = ChatSession(
                     title=question[:50], 
@@ -449,57 +484,40 @@ def ask():
         db.session.add(user_msg)
         db.session.commit()
 
-        # STREAMING: Collect response and stream to client
-        full_response = ""
-        session_id_for_save = chat_session.id
-        remaining_count = msg if isinstance(msg, int) else None
-
         def generate():
-            nonlocal full_response
+            full_response = ""
 
-            yield "data: " + json.dumps({"type": "session", "session_id": session_id_for_save}) + "\n\n"
+            yield f"data: {json.dumps({'type': 'session', 'session_id': chat_session.id})}\n\n"
 
-            try:
-                stream = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": question}
-                    ],
-                    stream=True
-                )
+            stream = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question}
+                ],
+                stream=True
+            )
 
-                for chunk in stream:
-                    if chunk.choices[0].delta.content:
-                        text = chunk.choices[0].delta.content
-                        full_response += text
-                        yield "data: " + json.dumps({"type": "token", "content": text}) + "\n\n"
-            except Exception as stream_err:
-                print("OpenAI stream error: " + str(stream_err))
-                yield "data: " + json.dumps({"type": "error", "content": str(stream_err)}) + "\n\n"
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    text = chunk.choices[0].delta.content
+                    full_response += text
+                    yield f"data: {json.dumps({'type': 'token', 'content': text})}\n\n"
 
-            yield "data: " + json.dumps({"type": "done", "remaining": remaining_count}) + "\n\n"
+            ai_msg = ChatMessage(session_id=chat_session.id, role='ai', content=full_response)
+            db.session.add(ai_msg)
+            db.session.commit()
 
-        response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+            yield f"data: {json.dumps({'type': 'done', 'remaining': msg if isinstance(msg, int) else None})}\n\n"
 
-        # Save AI message after response completes
-        @response.call_on_close
-        def on_close():
-            try:
-                if full_response:
-                    ai_msg = ChatMessage(session_id=session_id_for_save, role='ai', content=full_response)
-                    db.session.add(ai_msg)
-                    db.session.commit()
-            except Exception as db_err:
-                print("DB save error: " + str(db_err))
-
-        return response
+        return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
     except Exception as e:
-        print("ASK ERROR: " + str(e))
-        import traceback
-        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+# ========================
+# CALCULATOR APIs
+# ========================
 
 @app.route("/api/calculate/paye", methods=["POST"])
 def calculate_paye():
@@ -741,7 +759,7 @@ def upload_document():
 @app.route("/api/documents/<int:doc_id>", methods=["GET"])
 def get_document(doc_id):
     try:
-        doc = db.session.get(Document, doc_id) or abort(404)
+        doc = Document.query.get_or_404(doc_id)
         if current_user.is_authenticated and doc.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 
@@ -757,7 +775,7 @@ def get_document(doc_id):
 @app.route("/api/documents/<int:doc_id>", methods=["DELETE"])
 def delete_document(doc_id):
     try:
-        doc = db.session.get(Document, doc_id) or abort(404)
+        doc = Document.query.get_or_404(doc_id)
         if current_user.is_authenticated and doc.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 
@@ -778,7 +796,7 @@ def analyze_document():
         doc_id = data.get("document_id")
         question = data.get("question", "Analyze this tax document")
 
-        doc = db.session.get(Document, doc_id) or abort(404)
+        doc = Document.query.get_or_404(doc_id)
         if current_user.is_authenticated and doc.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 
@@ -864,228 +882,128 @@ def migrate_db():
 
 migrate_db()
 
+@app.route("/api/test")
+def test():
+    return jsonify({"status": "ok"})
+
 
 # ========================
-# ARTICLE/TRAINING APIs
+# VISITOR ANALYTICS APIs
 # ========================
 
-@app.route("/api/articles", methods=["GET"])
-def get_articles():
+@app.route("/api/admin/visitors", methods=["GET"])
+@admin_required
+def admin_visitors():
     try:
-        category = request.args.get('category', 'tax_research')
-        articles = Article.query.filter_by(category=category).order_by(Article.created_at.desc()).all()
-        return jsonify([a.to_dict() for a in articles])
+        total_visitors = db.session.query(db.func.count(db.distinct(VisitorLog.ip_address))).scalar() or 0
+        total_visits = VisitorLog.query.count()
+
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_visitors = VisitorLog.query.filter(VisitorLog.created_at >= today).count()
+        today_unique = db.session.query(db.func.count(db.distinct(VisitorLog.ip_address))).filter(VisitorLog.created_at >= today).scalar() or 0
+
+        country_stats = db.session.query(VisitorLog.country, db.func.count(db.distinct(VisitorLog.ip_address))).filter(VisitorLog.country.isnot(None)).group_by(VisitorLog.country).all()
+
+        recent = VisitorLog.query.order_by(VisitorLog.created_at.desc()).limit(50).all()
+
+        return jsonify({
+            "total_visitors": total_visitors,
+            "total_visits": total_visits,
+            "today_visitors": today_visitors,
+            "today_unique": today_unique,
+            "country_stats": [{"country": c, "count": count} for c, count in country_stats],
+            "recent_visitors": [{"ip": v.ip_address, "page": v.page_visited, "is_logged_in": v.is_logged_in, "country": v.country, "time": v.created_at.strftime("%Y-%m-%d %H:%M")} for v in recent]
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/articles/add", methods=["POST"])
-def add_article():
+@app.route("/api/admin/users-detailed", methods=["GET"])
+@admin_required
+def admin_users_detailed():
     try:
-        data = request.get_json()
-        title = data.get('title', '').strip()
-        url = data.get('url', '').strip()
-        content = data.get('content', '').strip()
-        source = data.get('source', 'manual').strip()
-        category = data.get('category', 'tax_research').strip()
+        users = User.query.order_by(User.created_at.desc()).all()
+        return jsonify([{
+            "id": u.id,
+            "email": u.email,
+            "country": u.country,
+            "role": u.role,
+            "is_guest": u.is_guest,
+            "created_at": u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else None,
+            "session_count": ChatSession.query.filter_by(user_id=u.id).count(),
+            "document_count": Document.query.filter_by(user_id=u.id).count()
+        } for u in users])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-        if not title or not content:
-            return jsonify({"error": "Title and content are required"}), 400
+@app.route("/api/admin/training-docs", methods=["GET"])
+@admin_required
+def get_training_docs():
+    try:
+        docs = TrainingDocument.query.order_by(TrainingDocument.created_at.desc()).all()
+        return jsonify([d.to_dict() for d in docs])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-        article = Article(
+@app.route("/api/admin/training-docs/upload", methods=["POST"])
+@admin_required
+def upload_training_doc():
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+
+        file = request.files["file"]
+        if file.filename == "":
+            return jsonify({"error": "No file selected"}), 400
+
+        title = request.form.get("title", file.filename)
+        doc_type = request.form.get("doc_type", "general")
+        jurisdiction = request.form.get("jurisdiction", "Tanzania")
+
+        filename = secure_filename(file.filename)
+        content_text = ""
+
+        if filename.lower().endswith(".pdf"):
+            try:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    content_text += page.extract_text() + "\n"
+            except Exception as e:
+                content_text = "Could not extract text: " + str(e)
+        else:
+            content_text = file.read().decode("utf-8", errors="ignore")
+
+        doc = TrainingDocument(
             title=title,
-            url=url,
-            content=content,
-            source=source,
-            category=category
+            filename=filename,
+            content_text=content_text[:50000],
+            doc_type=doc_type,
+            source="admin_upload",
+            jurisdiction=jurisdiction,
+            uploaded_by=current_user.id
         )
-        db.session.add(article)
+        db.session.add(doc)
         db.session.commit()
 
-        return jsonify({
-            "message": "Article added successfully",
-            "article": article.to_dict()
-        })
+        log_audit("upload_training_doc", "training_document", doc.id)
+
+        return jsonify({"message": "Training document uploaded", "document": doc.to_dict()})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/articles/<int:article_id>", methods=["DELETE"])
-def delete_article(article_id):
+@app.route("/api/admin/training-docs/<int:doc_id>", methods=["DELETE"])
+@admin_required
+def delete_training_doc(doc_id):
     try:
-        article = db.session.get(Article, article_id)
-        if not article:
-            return jsonify({"error": "Article not found"}), 404
+        doc = db.session.get(TrainingDocument, doc_id)
+        if not doc:
+            return jsonify({"error": "Document not found"}), 404
 
-        db.session.delete(article)
-        db.session.commit()
-        return jsonify({"message": "Article deleted"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-def scrape_url(url):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    }
-    response = requests.get(url, headers=headers, timeout=10)
-    response.raise_for_status()
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    for script in soup(["script", "style", "nav", "footer", "header"]):
-        script.decompose()
-
-    text = soup.get_text(separator='\n', strip=True)
-    lines = (line.strip() for line in text.splitlines())
-    chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-    text = '\n'.join(chunk for chunk in chunks if chunk)
-
-    return text[:50000]
-
-
-# ========================
-# AUTO-TRAINING SYSTEM
-# ========================
-
-AUTO_TRAIN_SOURCES = [
-    "https://tanzanialaws.com/i/150-income-tax-act",
-    "https://www.tra.go.tz",
-    "https://breakthroughattorneys.co.tz",
-]
-
-def auto_train_background():
-    """Background thread to auto-train from sources"""
-    while True:
-        try:
-            print("Auto-training starting...")
-            for url in AUTO_TRAIN_SOURCES:
-                try:
-                    content = scrape_url(url)
-                    if content and len(content) > 100:
-                        # Check if already exists
-                        existing = Article.query.filter_by(url=url).first()
-                        if not existing:
-                            title = content.split("\n")[0][:200] if content else url
-                            article = Article(
-                                title=title,
-                                url=url,
-                                content=content[:50000],
-                                source="auto-trained",
-                                category="tax_research"
-                            )
-                            db.session.add(article)
-                            db.session.commit()
-                            print("Auto-trained: " + url)
-                except Exception as e:
-                    print("Auto-train error for " + url + ": " + str(e))
-
-            # Sleep for 24 hours before next training
-            time.sleep(86400)
-        except Exception as e:
-            print("Auto-train loop error: " + str(e))
-            time.sleep(3600)
-
-def search_online(query, max_results=3):
-    """Search online for relevant tax information from known sources"""
-    try:
-        # Directly scrape known Tanzanian tax sources
-        sources = [
-            "https://www.tra.go.tz",
-            "https://tanzanialaws.com/i/150-income-tax-act",
-            "https://breakthroughattorneys.co.tz",
-        ]
-
-        results = []
-        for url in sources:
-            try:
-                content = scrape_url(url)
-                if content and len(content) > 200:
-                    results.append({
-                        "url": url,
-                        "title": "Tanzanian Tax Source",
-                        "content": content[:3000]
-                    })
-            except Exception as e:
-                print("Source scrape error: " + str(e))
-                continue
-
-        return results[:max_results]
-    except Exception as e:
-        print("Search error: " + str(e))
-        return []
-
-def get_enhanced_context(question, category="tax_research"):
-    """Get context from database + online search"""
-    # Get from database first
-    db_context = get_relevant_context(question, category)
-
-    # Search online for fresh information
-    online_results = search_online(question)
-
-    online_context = ""
-    for result in online_results:
-        online_context += "\n\nOnline Source: " + result["title"] + "\n" + result["content"][:1500] + "\n"
-
-    return db_context + online_context
-
-def get_relevant_context(question, category='tax_research', max_length=3000):
-    try:
-        articles = Article.query.filter_by(category=category).all()
-
-        question_words = set(re.findall(r'\\w+', question.lower()))
-        scored_articles = []
-
-        for article in articles:
-            content_words = set(re.findall(r'\\w+', article.content.lower()))
-            score = len(question_words & content_words)
-            if score > 0:
-                scored_articles.append((score, article))
-
-        scored_articles.sort(reverse=True, key=lambda x: x[0])
-
-        context = ""
-        for score, article in scored_articles[:3]:
-            context += "\n\nSource: " + article.title + "\n" + article.content[:2000] + "\n"
-            if len(context) > max_length:
-                break
-
-        return context
-    except Exception as e:
-        print("Context retrieval error: " + str(e))
-        return ""
-
-@app.route("/api/train", methods=["POST"])
-def train_from_urls():
-    try:
-        data = request.get_json()
-        urls = data.get('urls', [])
-        category = data.get('category', 'tax_research')
-
-        added = []
-        failed = []
-
-        for url in urls:
-            try:
-                content = scrape_url(url)
-                title = content.split('\n')[0][:200] if content else url
-
-                article = Article(
-                    title=title,
-                    url=url,
-                    content=content,
-                    source='scraped',
-                    category=category
-                )
-                db.session.add(article)
-                added.append(url)
-            except Exception as e:
-                failed.append({"url": url, "error": str(e)})
-
+        db.session.delete(doc)
         db.session.commit()
 
-        return jsonify({
-            "added": len(added),
-            "failed": failed,
-            "message": "Added " + str(len(added)) + " articles, " + str(len(failed)) + " failed"
-        })
+        log_audit("delete_training_doc", "training_document", doc_id)
+
+        return jsonify({"message": "Training document deleted"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
