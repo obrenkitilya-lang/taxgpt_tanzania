@@ -1447,10 +1447,10 @@ function sendMessage(e) {
                         finalDiv.textContent = fullText;
                     }
 
-                    // Add feedback buttons
+                    // Add feedback buttons (simplified)
                     const feedbackDiv = document.createElement('div');
                     feedbackDiv.style.cssText = 'margin-top:8px; padding-top:8px; border-top:1px solid #1e293b; display:flex; gap:8px; opacity:0; transition:opacity 0.2s;';
-                    feedbackDiv.innerHTML = '<span style="color:#64748b; font-size:12px;">Was this helpful?</span>' +
+                    feedbackDiv.innerHTML = '<span style="color:#64748b; font-size:12px;">Was this helpful?</span>';
 
                     finalDiv.appendChild(feedbackDiv);
 
@@ -1929,9 +1929,22 @@ if (currentTool === 'documents') {
 }
 
 // ========================
+// UTILITIES
+// ========================
+function escapeHtml(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// ========================
 // FEEDBACK SYSTEM
 // ========================
-
+function submitFeedback(sessionId, question, answer, feedbackType) {
     fetch('/api/feedback', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
