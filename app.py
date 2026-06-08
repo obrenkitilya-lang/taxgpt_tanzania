@@ -11,6 +11,9 @@ import tempfile
 import PyPDF2
 import json
 from datetime import datetime, timedelta
+import requests
+from bs4 import BeautifulSoup
+import re
 
 # Load environment variables
 load_dotenv()
@@ -96,6 +99,25 @@ class GuestActivity(db.Model):
     ip_address = db.Column(db.String(45), nullable=False)
     activity_type = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+class Article(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(500), nullable=False)
+    url = db.Column(db.String(1000), nullable=True)
+    source = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'url': self.url,
+            'source': self.source,
+            'category': self.category,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M')
+        }
 
 CORS(app)
 
@@ -388,6 +410,11 @@ def ask():
             return jsonify({"error": "No question provided"}), 400
 
         system_prompt = TOOL_PROMPTS.get(tool, TOOL_PROMPTS["tax_research"])
+
+        # Get enhanced context from database + online search
+        enhanced_context = get_enhanced_context(question, tool)
+        if enhanced_context:
+            system_prompt += "\n\nUse the following reference information to answer accurately:\n" + enhanced_context[:4000]
 
         if session_id:
             chat_session = db.session.get(ChatSession, session_id)
@@ -828,6 +855,235 @@ def migrate_db():
         db.create_all()
 
 migrate_db()
+
+
+# ========================
+# ARTICLE/TRAINING APIs
+# ========================
+
+@app.route("/api/articles", methods=["GET"])
+def get_articles():
+    try:
+        category = request.args.get('category', 'tax_research')
+        articles = Article.query.filter_by(category=category).order_by(Article.created_at.desc()).all()
+        return jsonify([a.to_dict() for a in articles])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/articles/add", methods=["POST"])
+def add_article():
+    try:
+        data = request.get_json()
+        title = data.get('title', '').strip()
+        url = data.get('url', '').strip()
+        content = data.get('content', '').strip()
+        source = data.get('source', 'manual').strip()
+        category = data.get('category', 'tax_research').strip()
+
+        if not title or not content:
+            return jsonify({"error": "Title and content are required"}), 400
+
+        article = Article(
+            title=title,
+            url=url,
+            content=content,
+            source=source,
+            category=category
+        )
+        db.session.add(article)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Article added successfully",
+            "article": article.to_dict()
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/articles/<int:article_id>", methods=["DELETE"])
+def delete_article(article_id):
+    try:
+        article = db.session.get(Article, article_id)
+        if not article:
+            return jsonify({"error": "Article not found"}), 404
+
+        db.session.delete(article)
+        db.session.commit()
+        return jsonify({"message": "Article deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def scrape_url(url):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    response = requests.get(url, headers=headers, timeout=10)
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    for script in soup(["script", "style", "nav", "footer", "header"]):
+        script.decompose()
+
+    text = soup.get_text(separator='\n', strip=True)
+    lines = (line.strip() for line in text.splitlines())
+    chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+    text = '\n'.join(chunk for chunk in chunks if chunk)
+
+    return text[:50000]
+
+
+# ========================
+# AUTO-TRAINING SYSTEM
+# ========================
+
+AUTO_TRAIN_SOURCES = [
+    "https://tanzanialaws.com/i/150-income-tax-act",
+    "https://www.tra.go.tz",
+    "https://breakthroughattorneys.co.tz",
+]
+
+def auto_train_background():
+    """Background thread to auto-train from sources"""
+    while True:
+        try:
+            print("Auto-training starting...")
+            for url in AUTO_TRAIN_SOURCES:
+                try:
+                    content = scrape_url(url)
+                    if content and len(content) > 100:
+                        # Check if already exists
+                        existing = Article.query.filter_by(url=url).first()
+                        if not existing:
+                            title = content.split("\n")[0][:200] if content else url
+                            article = Article(
+                                title=title,
+                                url=url,
+                                content=content[:50000],
+                                source="auto-trained",
+                                category="tax_research"
+                            )
+                            db.session.add(article)
+                            db.session.commit()
+                            print("Auto-trained: " + url)
+                except Exception as e:
+                    print("Auto-train error for " + url + ": " + str(e))
+
+            # Sleep for 24 hours before next training
+            time.sleep(86400)
+        except Exception as e:
+            print("Auto-train loop error: " + str(e))
+            time.sleep(3600)
+
+def search_online(query, max_results=3):
+    """Search online for relevant tax information"""
+    try:
+        search_query = quote_plus(query + " Tanzania tax")
+        search_url = "https://www.google.com/search?q=" + search_query
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+
+        response = requests.get(search_url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        results = []
+        for link in soup.find_all("a", href=True)[:max_results]:
+            href = link["href"]
+            if href.startswith("http") and "google" not in href:
+                try:
+                    content = scrape_url(href)
+                    if content and len(content) > 200:
+                        results.append({
+                            "url": href,
+                            "title": link.get_text()[:100],
+                            "content": content[:3000]
+                        })
+                except:
+                    pass
+
+        return results
+    except Exception as e:
+        print("Search error: " + str(e))
+        return []
+
+def get_enhanced_context(question, category="tax_research"):
+    """Get context from database + online search"""
+    # Get from database first
+    db_context = get_relevant_context(question, category)
+
+    # Search online for fresh information
+    online_results = search_online(question)
+
+    online_context = ""
+    for result in online_results:
+        online_context += "\n\nOnline Source: " + result["title"] + "\n" + result["content"][:1500] + "\n"
+
+    return db_context + online_context
+
+def get_relevant_context(question, category='tax_research', max_length=3000):
+    try:
+        articles = Article.query.filter_by(category=category).all()
+
+        question_words = set(re.findall(r'\\w+', question.lower()))
+        scored_articles = []
+
+        for article in articles:
+            content_words = set(re.findall(r'\\w+', article.content.lower()))
+            score = len(question_words & content_words)
+            if score > 0:
+                scored_articles.append((score, article))
+
+        scored_articles.sort(reverse=True, key=lambda x: x[0])
+
+        context = ""
+        for score, article in scored_articles[:3]:
+            context += "\n\nSource: " + article.title + "\n" + article.content[:2000] + "\n"
+            if len(context) > max_length:
+                break
+
+        return context
+    except Exception as e:
+        print("Context retrieval error: " + str(e))
+        return ""
+
+@app.route("/api/train", methods=["POST"])
+def train_from_urls():
+    try:
+        data = request.get_json()
+        urls = data.get('urls', [])
+        category = data.get('category', 'tax_research')
+
+        added = []
+        failed = []
+
+        for url in urls:
+            try:
+                content = scrape_url(url)
+                title = content.split('\n')[0][:200] if content else url
+
+                article = Article(
+                    title=title,
+                    url=url,
+                    content=content,
+                    source='scraped',
+                    category=category
+                )
+                db.session.add(article)
+                added.append(url)
+            except Exception as e:
+                failed.append({"url": url, "error": str(e)})
+
+        db.session.commit()
+
+        return jsonify({
+            "added": len(added),
+            "failed": failed,
+            "message": "Added " + str(len(added)) + " articles, " + str(len(failed)) + " failed"
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
