@@ -338,7 +338,7 @@ def home():
 def admin_page():
     return send_file('frontend/index_fixed.html')
 
-@app.route('/<tool>')
+@app.route('/<<tool>')
 def tool_page(tool):
     valid_tools = ['tax_research', 'documents', 'calculators', 'deadlines', 'business_setup']
     if tool in valid_tools:
@@ -354,8 +354,8 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
             login_user(user)
-            return """<script>window.location.href='/';</script>"""
-        return """<script>alert('Invalid credentials');window.location.href='/login';</script>"""
+            return """<<script>window.location.href='/';</script>"""
+        return """<<script>alert('Invalid credentials');window.location.href='/login';</script>"""
 
     return """
 <!DOCTYPE html>
@@ -394,20 +394,20 @@ def signup_page():
         password = request.form.get("password", "")
 
         if not email or not password:
-            return """<script>alert('All fields required');window.location.href='/signup';</script>"""
+            return """<<script>alert('All fields required');window.location.href='/signup';</script>"""
 
         if len(password) < 6:
-            return """<script>alert('Password must be at least 6 characters');window.location.href='/signup';</script>"""
+            return """<<script>alert('Password must be at least 6 characters');window.location.href='/signup';</script>"""
 
         if User.query.filter_by(email=email).first():
-            return """<script>alert('Email already registered');window.location.href='/signup';</script>"""
+            return """<<script>alert('Email already registered');window.location.href='/signup';</script>"""
 
         hashed_password = generate_password_hash(password)
         user = User(email=email, password=hashed_password, is_guest=False)
         db.session.add(user)
         db.session.commit()
         login_user(user)
-        return """<script>window.location.href='/';</script>"""
+        return """<<script>window.location.href='/';</script>"""
 
     return """
 <!DOCTYPE html>
@@ -930,6 +930,26 @@ migrate_db()
 @app.route("/api/test")
 def test():
     return jsonify({"status": "ok"})
+
+# ========================
+# TEMPORARY DB FIX ROUTE
+# ========================
+
+@app.route("/api/fix-db")
+def fix_db():
+    try:
+        inspector = db.inspect(db.engine)
+        columns = [c['name'] for c in inspector.get_columns('user')]
+        
+        if 'country' not in columns:
+            db.session.execute(db.text("ALTER TABLE user ADD COLUMN country VARCHAR(50) DEFAULT 'Tanzania'"))
+            db.session.commit()
+            return jsonify({"message": "Added country column successfully"})
+        else:
+            return jsonify({"message": "country column already exists"})
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ========================
 # VISITOR ANALYTICS APIs
