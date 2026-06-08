@@ -4,7 +4,70 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TaxGPT Tanzania</title>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
+// ========================
+// CHAT DOCUMENT UPLOAD
+// ========================
+function handleChatFileUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Show upload indicator
+    const askBtn = document.getElementById('askBtn');
+    const originalText = askBtn.textContent;
+    askBtn.textContent = 'Uploading...';
+    askBtn.disabled = true;
+
+    fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        askBtn.textContent = originalText;
+        askBtn.disabled = false;
+
+        if (data.error) {
+            alert('Upload error: ' + data.error);
+            return;
+        }
+
+        // Add document reference to chat input
+        const userInput = document.getElementById('userInput');
+        const docRef = '[Document: ' + data.document.filename + '] ';
+        userInput.value = docRef + userInput.value;
+        userInput.focus();
+
+        // Show success message in chat area
+        const chatArea = document.getElementById('chatPage');
+        const welcomeMsg = document.getElementById('welcomeMsg');
+        if (welcomeMsg) welcomeMsg.style.display = 'none';
+
+        const docMessage = document.createElement('div');
+        docMessage.className = 'message system-message';
+        docMessage.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;background:#07123a;border-radius:8px;margin:8px 0;border:1px solid #1e293b;">📎 Document uploaded: <strong style="color:#dfff00;">' + escapeHtml(data.document.filename) + '</strong></div>';
+        chatArea.appendChild(docMessage);
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        // Store document ID for analysis
+        window.currentChatDocId = data.document.id;
+
+    })
+    .catch(err => {
+        askBtn.textContent = originalText;
+        askBtn.disabled = false;
+        console.error('Upload error:', err);
+        alert('Failed to upload document');
+    });
+
+    // Clear input
+    input.value = '';
+}
+
+</script>
 <style>
 *{
     margin:0;
@@ -737,6 +800,7 @@ body{
 </style>
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 
 <body>
@@ -1142,6 +1206,8 @@ body{
 
     <div class="bottom-section" id="chatInput">
         <form class="search-box" id="chatForm" onsubmit="return false;">
+            <input type="file" id="chat-file-input" style="display:none" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleChatFileUpload(this)">
+            <button type="button" onclick="document.getElementById('chat-file-input').click()" style="background:transparent;border:none;color:#dfff00;font-size:20px;cursor:pointer;padding:0 15px;" title="Attach document">📎</button>
             <input type="text" id="userInput" placeholder="Ask your tax question..." autocomplete="off">
             <button type="submit" id="askBtn">Ask</button>
         </form>
@@ -2568,6 +2634,69 @@ function loadAdminDashboard() {
 
     // Load audit logs
     loadAdminAuditLogs();
+}
+
+
+// ========================
+// CHAT DOCUMENT UPLOAD
+// ========================
+function handleChatFileUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Show upload indicator
+    const askBtn = document.getElementById('askBtn');
+    const originalText = askBtn.textContent;
+    askBtn.textContent = 'Uploading...';
+    askBtn.disabled = true;
+
+    fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        askBtn.textContent = originalText;
+        askBtn.disabled = false;
+
+        if (data.error) {
+            alert('Upload error: ' + data.error);
+            return;
+        }
+
+        // Add document reference to chat input
+        const userInput = document.getElementById('userInput');
+        const docRef = '[Document: ' + data.document.filename + '] ';
+        userInput.value = docRef + userInput.value;
+        userInput.focus();
+
+        // Show success message in chat area
+        const chatArea = document.getElementById('chatPage');
+        const welcomeMsg = document.getElementById('welcomeMsg');
+        if (welcomeMsg) welcomeMsg.style.display = 'none';
+
+        const docMessage = document.createElement('div');
+        docMessage.className = 'message system-message';
+        docMessage.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;background:#07123a;border-radius:8px;margin:8px 0;border:1px solid #1e293b;">📎 Document uploaded: <strong style="color:#dfff00;">' + escapeHtml(data.document.filename) + '</strong></div>';
+        chatArea.appendChild(docMessage);
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        // Store document ID for analysis
+        window.currentChatDocId = data.document.id;
+
+    })
+    .catch(err => {
+        askBtn.textContent = originalText;
+        askBtn.disabled = false;
+        console.error('Upload error:', err);
+        alert('Failed to upload document');
+    });
+
+    // Clear input
+    input.value = '';
 }
 
 </script>
