@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, Response, stream_with_context
+from flask import Flask, request, jsonify, send_file, Response, stream_with_context, abort
 from flask_cors import CORS
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -42,7 +42,7 @@ class User(db.Model, UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 class ChatSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -114,7 +114,7 @@ TOOL_PROMPTS = {
 }
 
 # Guest limits
-GUEST_CHAT_LIMIT = 5
+GUEST_CHAT_LIMIT = 50
 GUEST_DOCUMENT_LIMIT = 2
 GUEST_CALCULATOR_LIMIT = 10
 
@@ -126,25 +126,24 @@ def get_client_ip():
 def check_guest_limit(activity_type, limit):
     if current_user.is_authenticated:
         return True, None
-
-    ip = get_client_ip()
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-    count = GuestActivity.query.filter(
-        GuestActivity.ip_address == ip,
-        GuestActivity.activity_type == activity_type,
-        GuestActivity.created_at >= today
-    ).count()
-
-    if count >= limit:
-        return False, f"Guest limit reached. You have used {limit} {activity_type} actions today. Please sign up for unlimited access."
-
-    activity = GuestActivity(ip_address=ip, activity_type=activity_type)
-    db.session.add(activity)
-    db.session.commit()
-
-    remaining = limit - count - 1
-    return True, remaining
+    try:
+        ip = get_client_ip()
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        count = GuestActivity.query.filter(
+            GuestActivity.ip_address == ip,
+            GuestActivity.activity_type == activity_type,
+            GuestActivity.created_at >= today
+        ).count()
+        if count >= limit:
+            return False, "Guest limit reached. You have used " + str(limit) + " " + activity_type + " actions today. Please sign up for unlimited access."
+        activity = GuestActivity(ip_address=ip, activity_type=activity_type)
+        db.session.add(activity)
+        db.session.commit()
+        remaining = limit - count - 1
+        return True, remaining
+    except Exception as e:
+        print("Guest limit check error: " + str(e))
+        return True, None
 
 # ========================
 # AUTH ROUTES
@@ -347,7 +346,7 @@ def get_sessions():
 @app.route("/api/sessions/<int:session_id>", methods=["GET"])
 def get_session_messages(session_id):
     try:
-        session = ChatSession.query.get_or_404(session_id)
+        session = db.session.get(ChatSession, session_id) or abort(404)
         if current_user.is_authenticated and session.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 
@@ -359,7 +358,7 @@ def get_session_messages(session_id):
 @app.route("/api/sessions/<int:session_id>", methods=["DELETE"])
 def delete_session(session_id):
     try:
-        session = ChatSession.query.get_or_404(session_id)
+        session = db.session.get(ChatSession, session_id) or abort(404)
         if current_user.is_authenticated and session.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 
@@ -391,7 +390,7 @@ def ask():
         system_prompt = TOOL_PROMPTS.get(tool, TOOL_PROMPTS["tax_research"])
 
         if session_id:
-            chat_session = ChatSession.query.get(session_id)
+            chat_session = db.session.get(ChatSession, session_id)
             if not chat_session:
                 chat_session = ChatSession(
                     title=question[:50], 
@@ -415,40 +414,57 @@ def ask():
         db.session.add(user_msg)
         db.session.commit()
 
+        # STREAMING: Collect response and stream to client
+        full_response = ""
+        session_id_for_save = chat_session.id
+        remaining_count = msg if isinstance(msg, int) else None
+
         def generate():
-            full_response = ""
+            nonlocal full_response
 
-            yield f"data: {json.dumps({'type': 'session', 'session_id': chat_session.id})}\n\n"
+            yield "data: " + json.dumps({"type": "session", "session_id": session_id_for_save}) + "\n\n"
 
-            stream = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": question}
-                ],
-                stream=True
-            )
+            try:
+                stream = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": question}
+                    ],
+                    stream=True
+                )
 
-            for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    text = chunk.choices[0].delta.content
-                    full_response += text
-                    yield f"data: {json.dumps({'type': 'token', 'content': text})}\n\n"
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        text = chunk.choices[0].delta.content
+                        full_response += text
+                        yield "data: " + json.dumps({"type": "token", "content": text}) + "\n\n"
+            except Exception as stream_err:
+                print("OpenAI stream error: " + str(stream_err))
+                yield "data: " + json.dumps({"type": "error", "content": str(stream_err)}) + "\n\n"
 
-            ai_msg = ChatMessage(session_id=chat_session.id, role='ai', content=full_response)
-            db.session.add(ai_msg)
-            db.session.commit()
+            yield "data: " + json.dumps({"type": "done", "remaining": remaining_count}) + "\n\n"
 
-            yield f"data: {json.dumps({'type': 'done', 'remaining': msg if isinstance(msg, int) else None})}\n\n"
+        response = Response(stream_with_context(generate()), mimetype='text/event-stream')
 
-        return Response(stream_with_context(generate()), mimetype='text/event-stream')
+        # Save AI message after response completes
+        @response.call_on_close
+        def on_close():
+            try:
+                if full_response:
+                    ai_msg = ChatMessage(session_id=session_id_for_save, role='ai', content=full_response)
+                    db.session.add(ai_msg)
+                    db.session.commit()
+            except Exception as db_err:
+                print("DB save error: " + str(db_err))
+
+        return response
 
     except Exception as e:
+        print("ASK ERROR: " + str(e))
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
-# ========================
-# CALCULATOR APIs
-# ========================
 
 @app.route("/api/calculate/paye", methods=["POST"])
 def calculate_paye():
@@ -690,7 +706,7 @@ def upload_document():
 @app.route("/api/documents/<int:doc_id>", methods=["GET"])
 def get_document(doc_id):
     try:
-        doc = Document.query.get_or_404(doc_id)
+        doc = db.session.get(Document, doc_id) or abort(404)
         if current_user.is_authenticated and doc.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 
@@ -706,7 +722,7 @@ def get_document(doc_id):
 @app.route("/api/documents/<int:doc_id>", methods=["DELETE"])
 def delete_document(doc_id):
     try:
-        doc = Document.query.get_or_404(doc_id)
+        doc = db.session.get(Document, doc_id) or abort(404)
         if current_user.is_authenticated and doc.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 
@@ -727,7 +743,7 @@ def analyze_document():
         doc_id = data.get("document_id")
         question = data.get("question", "Analyze this tax document")
 
-        doc = Document.query.get_or_404(doc_id)
+        doc = db.session.get(Document, doc_id) or abort(404)
         if current_user.is_authenticated and doc.user_id != current_user.id:
             return jsonify({"error": "Unauthorized"}), 403
 

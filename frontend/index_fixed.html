@@ -736,6 +736,7 @@ body{
 }
 </style>
 <base target="_blank">
+<base target="_blank">
 </head>
 
 <body>
@@ -1145,8 +1146,7 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
     const chatHistory = document.getElementById('chatHistory');
 
     let currentSessionId = null;
-    let currentAiMsgDiv = null;  // Track the current AI message being streamed
-    let isStreaming = false;     // Track if we're currently streaming
+    let isStreaming = false;
 
     window.addEventListener('DOMContentLoaded', () => {
         loadSessions();
@@ -1157,35 +1157,37 @@ if (currentTool === 'tax_research' || currentTool === 'documents') {
         if (e.key === 'Enter') sendMessage(e);
     });
 
-function sendMessage(e) {
+    function sendMessage(e) {
     e.preventDefault();
     const question = userInput.value.trim();
-    if (!question) return;
-    
-    if (isStreaming) return;
-    
+    if (!question || isStreaming) return;
+
     if (welcomeMsg) welcomeMsg.style.display = 'none';
-    
+
+    // Add user message
     const userMsgDiv = document.createElement('div');
     userMsgDiv.className = 'message user-message';
     userMsgDiv.textContent = question;
     chatArea.appendChild(userMsgDiv);
     chatArea.scrollTop = chatArea.scrollHeight;
-    
+
     userInput.value = '';
     askBtn.disabled = true;
     isStreaming = true;
-    
-    const aiMsgDiv = document.createElement('div');
-    aiMsgDiv.className = 'message ai-message';
-    aiMsgDiv.style.minHeight = '40px';
-    aiMsgDiv.style.whiteSpace = 'pre-wrap';
-    chatArea.appendChild(aiMsgDiv);
+
+    // Add streaming container
+    const streamingDiv = document.createElement('div');
+    streamingDiv.className = 'message ai-message';
+    streamingDiv.style.minHeight = '40px';
+    streamingDiv.innerHTML = '<span style="color:#64748b;font-style:italic;">Thinking...</span>';
+    chatArea.appendChild(streamingDiv);
     chatArea.scrollTop = chatArea.scrollHeight;
-    
+
     let fullText = '';
     let sessionIdFromStream = null;
-    
+    let isFirstToken = true;
+    let tokenCount = 0;
+
     fetch('/ask', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -1196,64 +1198,94 @@ function sendMessage(e) {
         })
     })
     .then(response => {
+        if (!response.ok) {
+            throw new Error('HTTP ' + response.status);
+        }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        
+
         function readStream() {
             return reader.read().then(({done, value}) => {
                 if (done) {
                     isStreaming = false;
                     askBtn.disabled = false;
-                    // FIX: Clear before setting innerHTML
-                    aiMsgDiv.textContent = '';
-                    aiMsgDiv.style.whiteSpace = 'normal';
-                    aiMsgDiv.innerHTML = marked.parse(fullText);
+
+                    // CRITICAL FIX: Create completely new element for final result
+                    // This guarantees no overlap because old element is destroyed
+                    const finalDiv = document.createElement('div');
+                    finalDiv.className = 'message ai-message';
+
+                    try {
+                        const parsed = marked.parse(fullText);
+                        finalDiv.innerHTML = parsed;
+                    } catch (err) {
+                        finalDiv.textContent = fullText;
+                    }
+
+                    // Replace streaming div with final div
+                    streamingDiv.parentNode.replaceChild(finalDiv, streamingDiv);
+                    chatArea.scrollTop = chatArea.scrollHeight;
+
                     if (sessionIdFromStream) {
                         currentSessionId = sessionIdFromStream;
                         loadSessions();
                     }
                     return;
                 }
-                
+
                 const chunk = decoder.decode(value, {stream: true});
                 const lines = chunk.split('\n');
-                
+
                 lines.forEach(line => {
                     if (line.startsWith('data: ')) {
                         try {
                             const data = JSON.parse(line.slice(6));
-                            
+
                             if (data.type === 'session') {
                                 sessionIdFromStream = data.session_id;
                             } else if (data.type === 'token') {
+                                tokenCount++;
                                 fullText += data.content;
-                                aiMsgDiv.textContent = fullText;
+
+                                // First token: clear "Thinking..." and show text
+                                if (isFirstToken) {
+                                    isFirstToken = false;
+                                    streamingDiv.innerHTML = '';
+                                    streamingDiv.style.whiteSpace = 'pre-wrap';
+                                }
+
+                                streamingDiv.textContent = fullText;
                                 chatArea.scrollTop = chatArea.scrollHeight;
                             } else if (data.type === 'done') {
                                 if (data.remaining !== undefined && data.remaining !== null && data.remaining <= 2) {
-                                    showLimitBanner(`You have ${data.remaining} free uses remaining.`);
+                                    showLimitBanner('You have ' + data.remaining + ' free uses remaining.');
                                 }
                             }
-                        } catch (e) {}
+                        } catch (e) {
+                            // Ignore parse errors
+                        }
                     }
                 });
-                
+
                 return readStream();
             });
         }
-        
+
         return readStream();
     })
     .catch(error => {
+        console.error('Stream error:', error);
         isStreaming = false;
-        aiMsgDiv.innerHTML = 'Sorry, there was an error processing your request.';
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'message ai-message';
+        errorDiv.textContent = 'Sorry, there was an error. Please check your connection and try again.';
+        streamingDiv.parentNode.replaceChild(errorDiv, streamingDiv);
         askBtn.disabled = false;
     });
 }
 
-    function newChat() {
+function newChat() {
         currentSessionId = null;
-        currentAiMsgDiv = null;
         isStreaming = false;
         chatArea.innerHTML = '<div class="welcome-message" id="welcomeMsg">Ask me anything about Tanzanian tax law</div>';
         userInput.value = '';
@@ -1269,31 +1301,31 @@ function sendMessage(e) {
             sessions.forEach(session => {
                 const div = document.createElement('div');
                 div.className = 'history-item' + (session.id === currentSessionId ? ' active' : '');
-                div.innerHTML = `
-                    <span class="history-item-text">${session.title}</span>
-                    <button class="delete-btn" onclick="deleteSession(${session.id}, event)">×</button>
-                `;
+                div.innerHTML = '<span class="history-item-text">' + session.title + '</span><button class="delete-btn" onclick="deleteSession(' + session.id + ', event)">×</button>';
                 div.onclick = () => loadSession(session.id);
                 chatHistory.appendChild(div);
             });
-        });
+        })
+        .catch(err => console.error('Failed to load sessions:', err));
     }
 
     function loadSession(sessionId) {
-        // Don't load a session while streaming
         if (isStreaming) return;
-
         currentSessionId = sessionId;
-        fetch(`/api/sessions/${sessionId}`)
+        fetch('/api/sessions/' + sessionId)
         .then(response => response.json())
         .then(messages => {
             chatArea.innerHTML = '';
-            welcomeMsg.style.display = 'none';
+            if (welcomeMsg) welcomeMsg.style.display = 'none';
             messages.forEach(msg => {
                 const div = document.createElement('div');
-                div.className = `message ${msg.role}-message`;
+                div.className = 'message ' + msg.role + '-message';
                 if (msg.role === 'ai') {
-                    div.innerHTML = marked.parse(msg.content);
+                    try {
+                        div.innerHTML = marked.parse(msg.content);
+                    } catch (e) {
+                        div.innerHTML = escapeHtml(msg.content);
+                    }
                 } else {
                     div.textContent = msg.content;
                 }
@@ -1301,17 +1333,19 @@ function sendMessage(e) {
             });
             loadSessions();
             chatArea.scrollTop = chatArea.scrollHeight;
-        });
+        })
+        .catch(err => console.error('Failed to load session:', err));
     }
 
     function deleteSession(sessionId, event) {
         event.stopPropagation();
         if (!confirm('Delete this chat?')) return;
-        fetch(`/api/sessions/${sessionId}`, {method: 'DELETE'})
+        fetch('/api/sessions/' + sessionId, {method: 'DELETE'})
         .then(() => {
             if (currentSessionId === sessionId) newChat();
             else loadSessions();
-        });
+        })
+        .catch(err => console.error('Failed to delete session:', err));
     }
 }
 
@@ -1610,7 +1644,12 @@ function analyzeDocument() {
         } else {
             const aiMsg = document.createElement('div');
             aiMsg.style.cssText = 'background:#0f172a; border:1px solid #1e293b; color:#e2e8f0; padding:16px; border-radius:12px; margin-bottom:12px; line-height:1.6;';
-            aiMsg.innerHTML = marked.parse(data.answer);
+            try {
+                            const parsed = marked.parse(data.answer);
+                            aiMsg.innerHTML = parsed;
+                        } catch (e) {
+                            aiMsg.textContent = data.answer;
+                        }
             chatArea.appendChild(aiMsg);
         }
         chatArea.scrollTop = chatArea.scrollHeight;
