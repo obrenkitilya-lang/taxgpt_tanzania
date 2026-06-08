@@ -795,8 +795,7 @@ def upload_document():
             try:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
-                    content_text += page.extract_text() + "
-"
+                    content_text += page.extract_text() + "\n"
             except Exception as e:
                 content_text = f"Could not extract text: {str(e)}"
         elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
