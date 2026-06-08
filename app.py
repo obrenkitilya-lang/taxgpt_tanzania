@@ -411,6 +411,14 @@ def ask():
 
         system_prompt = TOOL_PROMPTS.get(tool, TOOL_PROMPTS["tax_research"])
 
+        # Add instruction to not mention cutoff dates
+        system_prompt += " You are a Tanzanian tax expert with current knowledge. Do not mention knowledge cutoff dates. Answer based on current Tanzanian tax laws and regulations. Always provide exact tax rates and figures without rounding up. Use precise percentages (e.g., 18.0%, 30.0%, 4.0%, 1.0%) and exact amounts. Do not approximate or round figures."
+
+        # Get enhanced context from database + online search
+        enhanced_context = get_enhanced_context(question, tool)
+        if enhanced_context:
+            system_prompt += "\n\nUse the following reference information:\n" + enhanced_context[:4000]
+
         # Get enhanced context from database + online search
         enhanced_context = get_enhanced_context(question, tool)
         if enhanced_context:
@@ -976,34 +984,30 @@ def auto_train_background():
             time.sleep(3600)
 
 def search_online(query, max_results=3):
-    """Search online for relevant tax information"""
+    """Search online for relevant tax information from known sources"""
     try:
-        search_query = quote_plus(query + " Tanzania tax")
-        search_url = "https://www.google.com/search?q=" + search_query
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
-
-        response = requests.get(search_url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, "html.parser")
+        # Directly scrape known Tanzanian tax sources
+        sources = [
+            "https://www.tra.go.tz",
+            "https://tanzanialaws.com/i/150-income-tax-act",
+            "https://breakthroughattorneys.co.tz",
+        ]
 
         results = []
-        for link in soup.find_all("a", href=True)[:max_results]:
-            href = link["href"]
-            if href.startswith("http") and "google" not in href:
-                try:
-                    content = scrape_url(href)
-                    if content and len(content) > 200:
-                        results.append({
-                            "url": href,
-                            "title": link.get_text()[:100],
-                            "content": content[:3000]
-                        })
-                except:
-                    pass
+        for url in sources:
+            try:
+                content = scrape_url(url)
+                if content and len(content) > 200:
+                    results.append({
+                        "url": url,
+                        "title": "Tanzanian Tax Source",
+                        "content": content[:3000]
+                    })
+            except Exception as e:
+                print("Source scrape error: " + str(e))
+                continue
 
-        return results
+        return results[:max_results]
     except Exception as e:
         print("Search error: " + str(e))
         return []
