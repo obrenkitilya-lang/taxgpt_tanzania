@@ -1451,9 +1451,6 @@ function sendMessage(e) {
                     const feedbackDiv = document.createElement('div');
                     feedbackDiv.style.cssText = 'margin-top:8px; padding-top:8px; border-top:1px solid #1e293b; display:flex; gap:8px; opacity:0; transition:opacity 0.2s;';
                     feedbackDiv.innerHTML = '<span style="color:#64748b; font-size:12px;">Was this helpful?</span>' +
-                        '<button onclick="submitFeedback(' + sessionIdFromStream + ', '' + question.replace(/'/g, '\'\'') + '', '' + fullText.replace(/'/g, '\'\'') + '', 'helpful')" style="background:#0f172a; border:1px solid #1e293b; color:#22c55e; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer;">✓ Correct</button>' +
-                        '<button onclick="submitFeedback(' + sessionIdFromStream + ', '' + question.replace(/'/g, '\'\'') + '', '' + fullText.replace(/'/g, '\'\'') + '', 'partially_correct')" style="background:#0f172a; border:1px solid #1e293b; color:#eab308; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer;">~ Partial</button>' +
-                        '<button onclick="submitFeedback(' + sessionIdFromStream + ', '' + question.replace(/'/g, '\'\'') + '', '' + fullText.replace(/'/g, '\'\'') + '', 'incorrect')" style="background:#0f172a; border:1px solid #1e293b; color:#ef4444; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer;">✗ Incorrect</button>';
 
                     finalDiv.appendChild(feedbackDiv);
 
@@ -1935,7 +1932,6 @@ if (currentTool === 'documents') {
 // FEEDBACK SYSTEM
 // ========================
 
-function submitFeedback(sessionId, question, answer, feedbackType) {
     fetch('/api/feedback', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
