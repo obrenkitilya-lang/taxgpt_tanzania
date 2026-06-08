@@ -114,9 +114,9 @@ TOOL_PROMPTS = {
 }
 
 # Guest limits
-GUEST_CHAT_LIMIT = 50
-GUEST_DOCUMENT_LIMIT = 2
-GUEST_CALCULATOR_LIMIT = 10
+GUEST_CHAT_LIMIT = 10
+GUEST_DOCUMENT_LIMIT = 1
+GUEST_CALCULATOR_LIMIT = 3
 
 def get_client_ip():
     if request.headers.get('X-Forwarded-For'):
