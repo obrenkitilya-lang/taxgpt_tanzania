@@ -551,7 +551,7 @@ def ask():
         def generate():
             full_response = ""
 
-            yield f"data: {json.dumps({'type': 'session', 'session_id': chat_session.id})}\n\n"
+            yield "data: " + json.dumps({'type': 'session', 'session_id': chat_session.id}) + "\n\n"
 
             stream = client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -566,13 +566,13 @@ def ask():
                 if chunk.choices[0].delta.content:
                     text = chunk.choices[0].delta.content
                     full_response += text
-                    yield f"data: {json.dumps({'type': 'token', 'content': text})}\n\n"
+                    yield "data: " + json.dumps({'type': 'token', 'content': text}) + "\n\n"
 
             ai_msg = ChatMessage(session_id=chat_session.id, role='ai', content=full_response)
             db.session.add(ai_msg)
             db.session.commit()
 
-            yield f"data: {json.dumps({'type': 'done', 'remaining': msg if isinstance(msg, int) else None})}\n\n"
+            yield "data: " + json.dumps({'type': 'done', 'remaining': msg if isinstance(msg, int) else None}) + "\n\n"
 
         return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
@@ -878,14 +878,12 @@ def analyze_document():
 
         doc_content = doc.content_text[:3000] if doc.content_text else "No text content available."
 
+        doc_prompt = "Document content:" + chr(10) + doc_content + chr(10) + chr(10) + "Question: " + question
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": TOOL_PROMPTS["documents"]},
-                {"role": "user", "content": f"Document content:
-{doc_content}
-
-Question: {question}"}
+                {"role": "user", "content": doc_prompt}
             ]
         )
         answer = response.choices[0].message.content
@@ -1062,8 +1060,7 @@ def upload_training_doc():
             try:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
-                    content_text += page.extract_text() + "
-"
+                    content_text += page.extract_text() + chr(10)
             except Exception as e:
                 content_text = "Could not extract text: " + str(e)
         else:
