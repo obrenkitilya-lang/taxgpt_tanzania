@@ -283,13 +283,16 @@ def call_openai_chat(system_prompt, user_message, stream=False):
 @app.route("/api/auth/me", methods=["GET"])
 def get_current_user():
     if current_user.is_authenticated:
-        return jsonify({
-            "logged_in": True,
-            "email": current_user.email,
-            "country": current_user.country,
-            "role": current_user.role,
-            "is_guest": current_user.is_guest
-        })
+        # Force reload from DB to get latest role
+        user = db.session.get(User, current_user.id)
+        if user:
+            return jsonify({
+                "logged_in": True,
+                "email": user.email,
+                "country": user.country,
+                "role": user.role,
+                "is_guest": user.is_guest
+            })
     return jsonify({"logged_in": False})
 
 @app.route("/api/auth/signup", methods=["POST"])
@@ -343,6 +346,27 @@ def api_logout():
         log_audit("logout", "user", current_user.id)
         logout_user()
     return jsonify({"message": "Logged out successfully"})
+
+@app.route("/api/auth/change-password", methods=["POST"])
+@login_required
+def change_password():
+    try:
+        data = request.get_json()
+        current_password = data.get("current_password", "")
+        new_password = data.get("new_password", "")
+        if not current_password or not new_password:
+            return jsonify({"error": "Current password and new password are required"}), 400
+        if len(new_password) < 6:
+            return jsonify({"error": "New password must be at least 6 characters"}), 400
+        if not check_password_hash(current_user.password, current_password):
+            return jsonify({"error": "Current password is incorrect"}), 401
+        current_user.password = generate_password_hash(new_password)
+        db.session.commit()
+        log_audit("change_password", "user", current_user.id)
+        return jsonify({"message": "Password changed successfully"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 # ========================
 # PAGE ROUTES
@@ -927,31 +951,6 @@ def jurisdictions():
 @app.route("/api/test")
 def test():
     return jsonify({"status": "ok", "db": "connected"})
-
-# TEMPORARY DEBUG: Check actual DB value
-@app.route("/api/debug-user/<email>")
-def debug_user(email):
-    user = User.query.filter_by(email=email.lower()).first()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-    return jsonify({
-        "id": user.id,
-        "email": user.email,
-        "role": user.role,
-        "country": user.country,
-        "is_guest": user.is_guest
-    })
-
-# TEMPORARY: Fix database column size
-@app.route("/api/fix-db")
-def fix_db():
-    try:
-        db.session.execute(db.text('ALTER TABLE "user" ALTER COLUMN password TYPE VARCHAR(512)'))
-        db.session.commit()
-        return jsonify({"message": "Database fixed"})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
 
 # ADMIN BOOTSTRAP — makes any existing user admin by email
 @app.route("/api/make-admin/<path:email>")
