@@ -7,3 +7,4 @@ python-dotenv==1.0.1
 PyPDF2==3.0.1
 werkzeug==3.0.3
 psycopg2-binary==2.9.9gunicorn==23.0.0
+gunicorn==23.0.0
