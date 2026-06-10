@@ -928,6 +928,17 @@ def jurisdictions():
 def test():
     return jsonify({"status": "ok", "db": "connected"})
 
+# TEMPORARY: Fix database column size
+@app.route("/api/fix-db")
+def fix_db():
+    try:
+        db.session.execute(db.text('ALTER TABLE "user" ALTER COLUMN password TYPE VARCHAR(512)'))
+        db.session.commit()
+        return jsonify({"message": "Database fixed"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
 # ADMIN BOOTSTRAP — makes any existing user admin by email
 @app.route("/api/make-admin/<path:email>")
 def make_admin(email):
