@@ -4,1832 +4,766 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TaxGPT Tanzania</title>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
-// ========================
-// CHAT DOCUMENT UPLOAD
-// ========================
-async function handleChatFileUpload(input) {
-    const file = input.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const askBtn = document.getElementById('askBtn');
-    const originalText = askBtn.textContent;
-    askBtn.textContent = 'Uploading...';
-    askBtn.disabled = true;
-
-    try {
-        const response = await fetch('/api/documents/upload', {
-            method: 'POST',
-            credentials: 'include',
-            body: formData
-        });
-
-        const data = await response.json();
-        askBtn.textContent = originalText;
-        askBtn.disabled = false;
-
-        if (data.error) {
-            alert('Upload error: ' + data.error);
-            return;
-        }
-
-        // Add document reference to chat input
-        const userInput = document.getElementById('userInput');
-        const docRef = '[Document: ' + data.document.filename + '] ';
-        userInput.value = docRef + userInput.value;
-        userInput.focus();
-
-        // Show document in chat area
-        const chatArea = document.getElementById('chatPage');
-        const welcomeMsg = document.getElementById('welcomeMsg');
-        if (welcomeMsg) welcomeMsg.style.display = 'none';
-
-        const docMessage = document.createElement('div');
-        docMessage.className = 'message system-message';
-        docMessage.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;background:#07123a;border-radius:8px;margin:8px 0;border:1px solid #1e293b;">📎 Document uploaded: <strong style="color:#dfff00;">' + escapeHtml(data.document.filename) + '</strong></div>';
-        chatArea.appendChild(docMessage);
-        chatArea.scrollTop = chatArea.scrollHeight;
-
-        // Store document ID for AI analysis
-        window.currentChatDocId = data.document.id;
-        window.currentChatDocContent = data.content_preview;
-
-    } catch (err) {
-        askBtn.textContent = originalText;
-        askBtn.disabled = false;
-        console.error('Upload error:', err);
-        alert('Failed to upload document');
-    }
-
-    input.value = '';
-}
-
-
-// ========================
-// ADMIN USER ROLE MANAGEMENT
-// ========================
-async function updateUserRole(userId, newRole) {
-    if (!confirm('Are you sure you want to change this user\'s role to ' + newRole + '?')) return;
-
-    try {
-        const response = await fetch('/api/admin/users/' + userId + '/role', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ role: newRole })
-        });
-
-        const data = await response.json();
-        if (response.ok) {
-            alert('User role updated successfully!');
-            loadUsers();
-        } else {
-            alert('Error: ' + (data.error || 'Failed to update role'));
-        }
-    } catch (err) {
-        console.error('Update role error:', err);
-        alert('Failed to update user role');
-    }
-}
-
-</script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:Arial, sans-serif;
-}
-
-body{
-    background:#020817;
-    color:white;
-    height:100vh;
-    display:flex;
-}
-
-.sidebar{
-    width:260px;
-    background:#081028;
-    border-right:1px solid #1e293b;
-    display:flex;
-    flex-direction:column;
-    height:100vh;
-}
-
-.sidebar-header{
-    padding:20px;
-    border-bottom:1px solid #1e293b;
-}
-
-.logo{
-    font-size:24px;
-    font-weight:bold;
-    margin-bottom:16px;
-}
-
-.new-chat{
-    width:100%;
-    background:#dfff00;
-    border:none;
-    padding:12px;
-    border-radius:10px;
-    font-weight:bold;
-    cursor:pointer;
-    color:black;
-    font-size:14px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-}
-
-.new-chat:hover{
-    background:#c8e600;
-}
-
-.auth-section{
-    padding:12px 16px;
-    border-bottom:1px solid #1e293b;
-}
-
-.auth-btn{
-    width:100%;
-    padding:10px;
-    background:transparent;
-    border:1px solid #dfff00;
-    color:#dfff00;
-    border-radius:8px;
-    font-weight:bold;
-    cursor:pointer;
-    font-size:13px;
-    margin-bottom:8px;
-    text-align:center;
-    text-decoration:none;
-    display:block;
-}
-
-.auth-btn:hover{
-    background:#dfff00;
-    color:black;
-}
-
-.auth-btn-primary{
-    background:#dfff00;
-    color:black;
-    border:none;
-}
-
-.auth-btn-primary:hover{
-    background:#c8e600;
-}
-
-.user-info{
-    padding:10px 12px;
-    background:#0f172a;
-    border-radius:8px;
-    margin-bottom:8px;
-}
-
-.user-email{
-    color:white;
-    font-size:13px;
-    font-weight:bold;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-}
-
-.user-badge{
-    font-size:11px;
-    color:#64748b;
-    margin-top:4px;
-}
-
-.guest-warning{
-    padding:8px 12px;
-    background:#451a1a;
-    border:1px solid #7f1d1d;
-    border-radius:8px;
-    margin-bottom:8px;
-    font-size:12px;
-    color:#f87171;
-}
-
-.tools-section{
-    padding:12px 16px;
-    border-bottom:1px solid #1e293b;
-}
-
-.tools-title{
-    font-size:11px;
-    color:#64748b;
-    text-transform:uppercase;
-    letter-spacing:1px;
-    margin-bottom:8px;
-    padding:0 4px;
-}
-
-.tool-item{
-    padding:10px 12px;
-    border-radius:8px;
-    cursor:pointer;
-    font-size:14px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-    color:#94a3b8;
-    text-decoration:none;
-}
-
-.tool-item:hover{
-    background:#111c44;
-    color:white;
-}
-
-.tool-item.active{
-    background:#111c44;
-    color:white;
-}
-
-.history-section{
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    overflow:hidden;
-}
-
-.history-header{
-    padding:12px 20px 8px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-
-.history-title-text{
-    font-size:11px;
-    color:#64748b;
-    text-transform:uppercase;
-    letter-spacing:1px;
-}
-
-.chat-history{
-    flex:1;
-    overflow-y:auto;
-    padding:0 12px 12px;
-    display:flex;
-    flex-direction:column;
-    gap:4px;
-}
-
-.history-item{
-    padding:10px 12px;
-    border-radius:8px;
-    cursor:pointer;
-    font-size:13px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:8px;
-    color:#94a3b8;
-}
-
-.history-item:hover{
-    background:#111c44;
-    color:white;
-}
-
-.history-item.active{
-    background:#1e3a5f;
-    color:white;
-}
-
-.history-item-text{
-    flex:1;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-}
-
-.delete-btn{
-    background:none;
-    border:none;
-    color:#64748b;
-    cursor:pointer;
-    font-size:14px;
-    padding:0 4px;
-    opacity:0;
-}
-
-.history-item:hover .delete-btn{
-    opacity:1;
-}
-
-.delete-btn:hover{
-    color:#ef4444;
-}
-
-.sidebar-footer{
-    padding:12px 20px;
-    border-top:1px solid #1e293b;
-    font-size:12px;
-    color:#64748b;
-}
-
-.main{
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    height:100vh;
-    overflow:hidden;
-}
-
-.limit-banner{
-    background:#451a1a;
-    border:1px solid #7f1d1d;
-    color:#f87171;
-    padding:12px 20px;
-    text-align:center;
-    font-size:14px;
-    flex-shrink:0;
-}
-
-.limit-banner a{
-    color:#dfff00;
-    text-decoration:underline;
-    cursor:pointer;
-}
-
-.top-section{
-    text-align:center;
-    padding:30px 20px 15px;
-    flex-shrink:0;
-}
-
-.top-section h1{
-    font-size:42px;
-    margin-bottom:10px;
-}
-
-.top-section p{
-    color:#94a3b8;
-}
-
-.tool-indicator{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    background:#0f172a;
-    border:1px solid #1e293b;
-    padding:6px 14px;
-    border-radius:20px;
-    font-size:13px;
-    color:#94a3b8;
-    margin-top:10px;
-}
-
-.tool-indicator .dot{
-    width:8px;
-    height:8px;
-    border-radius:50%;
-    background:#dfff00;
-}
-
-.chat-area{
-    flex:1;
-    overflow-y:auto;
-    padding:20px 40px;
-    display:flex;
-    flex-direction:column;
-    gap:20px;
-}
-
-.welcome-message{
-    text-align:center;
-    color:#64748b;
-    margin-top:100px;
-}
-
-.message{
-    max-width:80%;
-    padding:16px 20px;
-    border-radius:12px;
-    line-height:1.6;
-    font-size:15px;
-}
-
-.user-message{
-    align-self:flex-end;
-    background:#1e3a5f;
-    color:white;
-}
-
-.ai-message{
-    align-self:flex-start;
-    background:#0f172a;
-    color:#e2e8f0;
-    border:1px solid #1e293b;
-}
-
-.ai-message h1, .ai-message h2, .ai-message h3{
-    margin:12px 0 8px;
-    color:#dfff00;
-}
-
-.ai-message p{
-    margin:8px 0;
-}
-
-.ai-message ul, .ai-message ol{
-    margin:10px 0 10px 20px;
-}
-
-.ai-message li{
-    margin:5px 0;
-}
-
-.ai-message a{
-    color:#dfff00;
-    text-decoration:underline;
-}
-
-.ai-message strong{
-    color:#dfff00;
-    font-weight:bold;
-}
-
-.ai-message code{
-    background:#1e293b;
-    padding:2px 6px;
-    border-radius:4px;
-    font-family:monospace;
-    font-size:14px;
-}
-
-.ai-message pre{
-    background:#1e293b;
-    padding:12px;
-    border-radius:8px;
-    overflow-x:auto;
-    margin:10px 0;
-}
-
-.ai-message pre code{
-    background:none;
-    padding:0;
-}
-
-.typing{
-    align-self:flex-start;
-    background:#0f172a;
-    color:#64748b;
-    padding:12px 20px;
-    border-radius:12px;
-    border:1px solid #1e293b;
-    font-style:italic;
-}
-
-.bottom-section{
-    padding:20px 40px 30px;
-    flex-shrink:0;
-}
-
-.search-box{
-    width:100%;
-    max-width:700px;
-    height:68px;
-    display:flex;
-    background:#0f172a;
-    border:1px solid #1e293b;
-    border-radius:18px;
-    overflow:hidden;
-    margin:0 auto;
-}
-
-.search-box input{
-    flex:1;
-    border:none;
-    outline:none;
-    background:none;
-    color:white;
-    font-size:18px;
-    padding:0 24px;
-}
-
-.search-box input::placeholder{
-    color:#64748b;
-}
-
-.search-box button{
-    width:140px;
-    border:none;
-    background:#dfff00;
-    color:black;
-    font-size:22px;
-    font-weight:bold;
-    cursor:pointer;
-}
-
-.search-box button:hover{
-    background:#c8e600;
-}
-
-.search-box button:disabled{
-    background:#6b7c00;
-    cursor:not-allowed;
-}
-
-.tool-page{
-    flex:1;
-    overflow-y:auto;
-    padding:20px 40px;
-}
-
-.calculator-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
-    gap:20px;
-    max-width:900px;
-    margin:0 auto;
-}
-
-.calc-card{
-    background:#0f172a;
-    border:1px solid #1e293b;
-    border-radius:16px;
-    padding:24px;
-}
-
-.calc-card h3{
-    color:#dfff00;
-    margin-bottom:16px;
-    font-size:18px;
-}
-
-.calc-input{
-    width:100%;
-    padding:12px;
-    background:#020817;
-    border:1px solid #1e293b;
-    border-radius:8px;
-    color:white;
-    font-size:16px;
-    margin-bottom:12px;
-}
-
-.calc-select{
-    width:100%;
-    padding:12px;
-    background:#020817;
-    border:1px solid #1e293b;
-    border-radius:8px;
-    color:white;
-    font-size:16px;
-    margin-bottom:12px;
-}
-
-.calc-btn{
-    width:100%;
-    padding:12px;
-    background:#dfff00;
-    border:none;
-    border-radius:8px;
-    color:black;
-    font-weight:bold;
-    cursor:pointer;
-    font-size:16px;
-}
-
-.calc-btn:hover{
-    background:#c8e600;
-}
-
-.calc-result{
-    margin-top:16px;
-    padding:16px;
-    background:#020817;
-    border-radius:8px;
-    border:1px solid #1e293b;
-}
-
-.calc-result-row{
-    display:flex;
-    justify-content:space-between;
-    padding:8px 0;
-    border-bottom:1px solid #1e293b;
-}
-
-.calc-result-row:last-child{
-    border-bottom:none;
-}
-
-.calc-result-label{
-    color:#94a3b8;
-}
-
-.calc-result-value{
-    color:white;
-    font-weight:bold;
-}
-
-.upload-area{
-    border:2px dashed #1e293b;
-    border-radius:16px;
-    padding:40px;
-    text-align:center;
-    cursor:pointer;
-    transition:border-color 0.2s;
-}
-
-.upload-area:hover{
-    border-color:#dfff00;
-}
-
-.upload-area.dragover {
-    border-color: #dfff00;
-    background: #0f172a;
-}
-
-.upload-icon{
-    font-size:48px;
-    margin-bottom:16px;
-}
-
-.deadline-list{
-    max-width:700px;
-    margin:0 auto;
-}
-
-.deadline-item{
-    background:#0f172a;
-    border:1px solid #1e293b;
-    border-radius:12px;
-    padding:20px;
-    margin-bottom:12px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-
-.deadline-date{
-    color:#dfff00;
-    font-weight:bold;
-    font-size:18px;
-}
-
-.deadline-name{
-    color:white;
-    font-size:16px;
-}
-
-.deadline-status{
-    padding:6px 12px;
-    border-radius:20px;
-    font-size:12px;
-    font-weight:bold;
-}
-
-.status-upcoming{
-    background:#1e3a5f;
-    color:#60a5fa;
-}
-
-.status-urgent{
-    background:#451a1a;
-    color:#f87171;
-}
-
-.setup-steps{
-    max-width:700px;
-    margin:0 auto;
-}
-
-.setup-step{
-    display:flex;
-    gap:16px;
-    margin-bottom:24px;
-}
-
-.step-number{
-    width:40px;
-    height:40px;
-    background:#dfff00;
-    color:black;
-    border-radius:50%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    flex-shrink:0;
-}
-
-.step-content h3{
-    color:#dfff00;
-    margin-bottom:8px;
-}
-
-.step-content p{
-    color:#94a3b8;
-    line-height:1.6;
-}
-
-.modal-overlay{
-    position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    background:rgba(0,0,0,0.8);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    z-index:1000;
-}
-
-.modal-content{
-    background:#07123a;
-    padding:40px;
-    border-radius:20px;
-    width:400px;
-    border:1px solid #1e293b;
-    position:relative;
-}
-
-.modal-title{
-    font-size:24px;
-    margin-bottom:20px;
-    color:white;
-}
-
-.modal-input{
-    width:100%;
-    padding:15px;
-    margin-top:12px;
-    background:#020817;
-    border:1px solid #334155;
-    color:white;
-    border-radius:10px;
-    font-size:16px;
-}
-
-.modal-btn{
-    width:100%;
-    padding:15px;
-    margin-top:16px;
-    background:#dfff00;
-    border:none;
-    border-radius:10px;
-    font-weight:bold;
-    cursor:pointer;
-    font-size:16px;
-    color:black;
-}
-
-.modal-btn:hover{
-    background:#c8e600;
-}
-
-.modal-link{
-    color:#dfff00;
-    cursor:pointer;
-    text-decoration:underline;
-}
-
-.modal-close{
-    position:absolute;
-    top:20px;
-    right:20px;
-    background:none;
-    border:none;
-    color:#64748b;
-    font-size:24px;
-    cursor:pointer;
-}
-
-.chat-area::-webkit-scrollbar, .chat-history::-webkit-scrollbar, .tool-page::-webkit-scrollbar{
-    width:6px;
-}
-
-.chat-area::-webkit-scrollbar-track, .chat-history::-webkit-scrollbar-track, .tool-page::-webkit-scrollbar-track{
-    background:transparent;
-}
-
-.chat-area::-webkit-scrollbar-thumb, .chat-history::-webkit-scrollbar-thumb, .tool-page::-webkit-scrollbar-thumb{
-    background:#1e293b;
-    border-radius:3px;
-}
-
-.hidden{
-    display:none !important;
-}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
+body{background:#020817;color:white;height:100vh;display:flex}
+.sidebar{width:260px;background:#081028;border-right:1px solid #1e293b;display:flex;flex-direction:column;height:100vh}
+.sidebar-header{padding:20px;border-bottom:1px solid #1e293b}
+.logo{font-size:24px;font-weight:bold;margin-bottom:16px}
+.new-chat{width:100%;background:#dfff00;border:none;padding:12px;border-radius:10px;font-weight:bold;cursor:pointer;color:black;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
+.new-chat:hover{background:#c8e600}
+.auth-section{padding:12px 16px;border-bottom:1px solid #1e293b}
+.auth-btn{width:100%;padding:10px;background:transparent;border:1px solid #dfff00;color:#dfff00;border-radius:8px;font-weight:bold;cursor:pointer;font-size:13px;margin-bottom:8px;text-align:center;text-decoration:none;display:block}
+.auth-btn:hover{background:#dfff00;color:black}
+.auth-btn-primary{background:#dfff00;color:black;border:none}
+.auth-btn-primary:hover{background:#c8e600}
+.user-info{padding:10px 12px;background:#0f172a;border-radius:8px;margin-bottom:8px}
+.user-email{color:white;font-size:13px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-badge{font-size:11px;color:#64748b;margin-top:4px}
+.tools-section{padding:12px 16px;border-bottom:1px solid #1e293b}
+.tools-title{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding:0 4px}
+.tool-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;gap:10px;color:#94a3b8;text-decoration:none}
+.tool-item:hover{background:#111c44;color:white}
+.tool-item.active{background:#111c44;color:white}
+.history-section{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.history-header{padding:12px 20px 8px;display:flex;justify-content:space-between;align-items:center}
+.history-title-text{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px}
+.chat-history{flex:1;overflow-y:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:4px}
+.history-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;color:#94a3b8}
+.history-item:hover{background:#111c44;color:white}
+.history-item.active{background:#1e3a5f;color:white}
+.history-item-text{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.delete-btn{background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;padding:0 4px;opacity:0}
+.history-item:hover .delete-btn{opacity:1}
+.delete-btn:hover{color:#ef4444}
+.sidebar-footer{padding:12px 20px;border-top:1px solid #1e293b;font-size:12px;color:#64748b}
+.main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.limit-banner{background:#451a1a;border:1px solid #7f1d1d;color:#f87171;padding:12px 20px;text-align:center;font-size:14px;flex-shrink:0}
+.limit-banner a{color:#dfff00;text-decoration:underline;cursor:pointer}
+.top-section{text-align:center;padding:30px 20px 15px;flex-shrink:0}
+.top-section h1{font-size:42px;margin-bottom:10px}
+.top-section p{color:#94a3b8}
+.tool-indicator{display:inline-flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #1e293b;padding:6px 14px;border-radius:20px;font-size:13px;color:#94a3b8;margin-top:10px}
+.tool-indicator .dot{width:8px;height:8px;border-radius:50%;background:#dfff00}
+.chat-area{flex:1;overflow-y:auto;padding:20px 40px;display:flex;flex-direction:column;gap:20px}
+.welcome-message{text-align:center;color:#64748b;margin-top:100px}
+.message{max-width:80%;padding:16px 20px;border-radius:12px;line-height:1.6;font-size:15px}
+.user-message{align-self:flex-end;background:#1e3a5f;color:white}
+.ai-message{align-self:flex-start;background:#0f172a;color:#e2e8f0;border:1px solid #1e293b}
+.ai-message h1,.ai-message h2,.ai-message h3{margin:12px 0 8px;color:#dfff00}
+.ai-message p{margin:8px 0}
+.ai-message ul,.ai-message ol{margin:10px 0 10px 20px}
+.ai-message li{margin:5px 0}
+.ai-message a{color:#dfff00;text-decoration:underline}
+.ai-message strong{color:#dfff00;font-weight:bold}
+.ai-message code{background:#1e293b;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:14px}
+.ai-message pre{background:#1e293b;padding:12px;border-radius:8px;overflow-x:auto;margin:10px 0}
+.ai-message pre code{background:none;padding:0}
+.bottom-section{padding:20px 40px 30px;flex-shrink:0}
+.search-box{width:100%;max-width:700px;height:68px;display:flex;background:#0f172a;border:1px solid #1e293b;border-radius:18px;overflow:hidden;margin:0 auto}
+.search-box input{flex:1;border:none;outline:none;background:none;color:white;font-size:18px;padding:0 24px}
+.search-box input::placeholder{color:#64748b}
+.search-box button{width:140px;border:none;background:#dfff00;color:black;font-size:22px;font-weight:bold;cursor:pointer}
+.search-box button:hover{background:#c8e600}
+.search-box button:disabled{background:#6b7c00;cursor:not-allowed}
+.tool-page{flex:1;overflow-y:auto;padding:20px 40px}
+.calculator-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;max-width:900px;margin:0 auto}
+.calc-card{background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px}
+.calc-card h3{color:#dfff00;margin-bottom:16px;font-size:18px}
+.calc-input{width:100%;padding:12px;background:#020817;border:1px solid #1e293b;border-radius:8px;color:white;font-size:16px;margin-bottom:12px}
+.calc-select{width:100%;padding:12px;background:#020817;border:1px solid #1e293b;border-radius:8px;color:white;font-size:16px;margin-bottom:12px}
+.calc-btn{width:100%;padding:12px;background:#dfff00;border:none;border-radius:8px;color:black;font-weight:bold;cursor:pointer;font-size:16px}
+.calc-btn:hover{background:#c8e600}
+.calc-result{margin-top:16px;padding:16px;background:#020817;border-radius:8px;border:1px solid #1e293b}
+.calc-result-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1e293b}
+.calc-result-row:last-child{border-bottom:none}
+.calc-result-label{color:#94a3b8}
+.calc-result-value{color:white;font-weight:bold}
+.upload-area{border:2px dashed #1e293b;border-radius:16px;padding:40px;text-align:center;cursor:pointer;transition:border-color 0.2s}
+.upload-area:hover{border-color:#dfff00}
+.deadline-list{max-width:700px;margin:0 auto}
+.deadline-item{background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.deadline-date{color:#dfff00;font-weight:bold;font-size:18px}
+.deadline-name{color:white;font-size:16px}
+.deadline-status{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:bold}
+.status-upcoming{background:#1e3a5f;color:#60a5fa}
+.status-urgent{background:#451a1a;color:#f87171}
+.setup-steps{max-width:700px;margin:0 auto}
+.setup-step{display:flex;gap:16px;margin-bottom:24px}
+.step-number{width:40px;height:40px;background:#dfff00;color:black;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;flex-shrink:0}
+.step-content h3{color:#dfff00;margin-bottom:8px}
+.step-content p{color:#94a3b8;line-height:1.6}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;justify-content:center;align-items:center;z-index:1000}
+.modal-content{background:#07123a;padding:40px;border-radius:20px;width:400px;border:1px solid #1e293b;position:relative}
+.modal-title{font-size:24px;margin-bottom:20px;color:white}
+.modal-input{width:100%;padding:15px;margin-top:12px;background:#020817;border:1px solid #334155;color:white;border-radius:10px;font-size:16px}
+.modal-btn{width:100%;padding:15px;margin-top:16px;background:#dfff00;border:none;border-radius:10px;font-weight:bold;cursor:pointer;font-size:16px;color:black}
+.modal-btn:hover{background:#c8e600}
+.modal-link{color:#dfff00;cursor:pointer;text-decoration:underline}
+.modal-close{position:absolute;top:20px;right:20px;background:none;border:none;color:#64748b;font-size:24px;cursor:pointer}
+.chat-area::-webkit-scrollbar,.chat-history::-webkit-scrollbar,.tool-page::-webkit-scrollbar{width:6px}
+.chat-area::-webkit-scrollbar-thumb,.chat-history::-webkit-scrollbar-thumb,.tool-page::-webkit-scrollbar-thumb{background:#1e293b;border-radius:3px}
+.hidden{display:none !important}
 </style>
-<base >
-<base >
-<base >
-<base target="_blank">
 </head>
-
 <body>
 
 <div class="sidebar">
-    <div class="sidebar-header">
-        <div class="logo">TaxGPT</div>
-        <button class="new-chat" onclick="newChat()">+ New Chat</button>
-    </div>
+  <div class="sidebar-header">
+    <div class="logo">TaxGPT</div>
+    <button class="new-chat" onclick="newChat()">+ New Chat</button>
+  </div>
 
-    <div class="auth-section" id="authSection">
-        <div id="guestAuth">
-            <a href="/login" class="auth-btn auth-btn-primary">Login</a>
-            <a href="/signup" class="auth-btn">Sign Up</a>
-            <div class="guest-warning" id="guestWarning" style="display:none;">
-                <span id="guestWarningText"></span>
-            </div>
-        </div>
-        <div id="userAuth" style="display:none;">
-            <div class="user-info">
-                <div class="user-email" id="userEmail"></div>
-                <div class="user-badge" id="userCountryBadge" style="font-size:10px; color:#dfff00; margin-top:2px;"></div>
-                <div class="user-badge" id="userRoleBadge" style="font-size:10px; color:#94a3b8; margin-top:2px;"></div>
-            </div>
-            <a href="/admin" class="auth-btn" id="adminLink" style="display:none; margin-bottom:8px;">🔒 Admin Panel</a>
-            <button class="auth-btn" onclick="logout()" style="border-color:#ef4444; color:#ef4444;">Logout</button>
-        </div>
+  <div class="auth-section" id="authSection">
+    <div id="guestAuth">
+      <a href="/login" class="auth-btn auth-btn-primary">Login</a>
+      <a href="/signup" class="auth-btn">Sign Up</a>
     </div>
+    <div id="userAuth" style="display:none;">
+      <div class="user-info">
+        <div class="user-email" id="userEmail"></div>
+        <div class="user-badge" id="userCountryBadge" style="color:#dfff00;font-size:10px;margin-top:2px;"></div>
+        <div class="user-badge" id="userRoleBadge" style="color:#94a3b8;font-size:10px;margin-top:2px;"></div>
+      </div>
+      <a href="/admin" class="auth-btn" id="adminLink" style="display:none;margin-bottom:8px;">🔒 Admin Panel</a>
+      <button class="auth-btn" onclick="logout()" style="border-color:#ef4444;color:#ef4444;">Logout</button>
+    </div>
+  </div>
 
-    <div class="tools-section">
-        <div class="tools-title">Tools</div>
-        <a href="/" class="tool-item" data-tool="tax_research" id="tool-tax_research">💬 Tax Research</a>
-        <a href="/documents" class="tool-item" data-tool="documents" id="tool-documents">📄 Documents</a>
-        <a href="/calculators" class="tool-item" data-tool="calculators" id="tool-calculators">🧮 Calculators</a>
-        <a href="/deadlines" class="tool-item" data-tool="deadlines" id="tool-deadlines">📅 Deadlines</a>
-        <a href="/business_setup" class="tool-item" data-tool="business_setup" id="tool-business_setup">🏢 Business Setup</a>
-    </div>
+  <div class="tools-section">
+    <div class="tools-title">Tools</div>
+    <a href="/" class="tool-item" id="tool-tax_research">💬 Tax Research</a>
+    <a href="/documents" class="tool-item" id="tool-documents">📄 Documents</a>
+    <a href="/calculators" class="tool-item" id="tool-calculators">🧮 Calculators</a>
+    <a href="/deadlines" class="tool-item" id="tool-deadlines">📅 Deadlines</a>
+    <a href="/business_setup" class="tool-item" id="tool-business_setup">🏢 Business Setup</a>
+  </div>
 
-    <div class="history-section">
-        <div class="history-header">
-            <span class="history-title-text">Recent Chats</span>
-        </div>
-        <div class="chat-history" id="chatHistory"></div>
+  <div class="history-section">
+    <div class="history-header">
+      <span class="history-title-text">Recent Chats</span>
     </div>
+    <div class="chat-history" id="chatHistory"></div>
+  </div>
 
-    <div class="sidebar-footer">
-        TaxGPT Tanzania v1.0
-    </div>
+  <div class="sidebar-footer">TaxGPT Tanzania v1.0</div>
 </div>
 
 <div class="main">
 
-    <div class="limit-banner hidden" id="limitBanner">
-        <span id="limitBannerText"></span>
-        <a onclick="showLoginModal()">Sign up for unlimited access</a>
-    </div>
+  <div class="limit-banner hidden" id="limitBanner">
+    <span id="limitBannerText"></span>
+    <a onclick="showLoginModal()"> Sign up for unlimited access</a>
+  </div>
 
-    <div class="top-section">
-        <h1>TaxGPT Tanzania</h1>
-        <p>Your AI assistant for Tanzanian tax law</p>
-        <div class="tool-indicator" id="toolIndicator">
-            <span class="dot"></span>
-            <span id="toolName">Tax Research</span>
+  <div class="top-section">
+    <h1>TaxGPT Tanzania</h1>
+    <p>Your AI assistant for Tanzanian tax law</p>
+    <div class="tool-indicator">
+      <span class="dot"></span>
+      <span id="toolName">Tax Research</span>
+    </div>
+  </div>
+
+  <!-- CHAT PAGE -->
+  <div class="chat-area" id="chatPage">
+    <div class="welcome-message" id="welcomeMsg">Ask me anything about Tanzanian tax law</div>
+  </div>
+
+  <!-- CALCULATORS PAGE -->
+  <div class="tool-page hidden" id="calculatorsPage">
+    <div class="calculator-grid">
+      <div class="calc-card">
+        <h3>🧮 PAYE Calculator</h3>
+        <input type="number" class="calc-input" id="payeGross" placeholder="Enter gross salary (TZS)">
+        <button class="calc-btn" onclick="calculatePAYE()">Calculate Net Pay</button>
+        <div class="calc-result hidden" id="payeResult"></div>
+      </div>
+      <div class="calc-card">
+        <h3>🧮 VAT Calculator</h3>
+        <input type="number" class="calc-input" id="vatAmount" placeholder="Enter amount (TZS)">
+        <button class="calc-btn" onclick="calculateVAT()">Calculate VAT</button>
+        <div class="calc-result hidden" id="vatResult"></div>
+      </div>
+      <div class="calc-card">
+        <h3>🧮 SDL Calculator</h3>
+        <input type="number" class="calc-input" id="sdlPayroll" placeholder="Enter gross payroll (TZS)">
+        <button class="calc-btn" onclick="calculateSDL()">Calculate SDL</button>
+        <div class="calc-result hidden" id="sdlResult"></div>
+      </div>
+      <div class="calc-card">
+        <h3>🧮 WCF Calculator</h3>
+        <input type="number" class="calc-input" id="wcfPayroll" placeholder="Enter gross payroll (TZS)">
+        <button class="calc-btn" onclick="calculateWCF()">Calculate WCF</button>
+        <div class="calc-result hidden" id="wcfResult"></div>
+      </div>
+      <div class="calc-card">
+        <h3>🧮 Corporate Tax Calculator</h3>
+        <input type="number" class="calc-input" id="corpIncome" placeholder="Enter taxable income (TZS)">
+        <button class="calc-btn" onclick="calculateCorpTax()">Calculate Tax</button>
+        <div class="calc-result hidden" id="corpResult"></div>
+      </div>
+      <div class="calc-card">
+        <h3>🧮 Withholding Tax Calculator</h3>
+        <input type="number" class="calc-input" id="whAmount" placeholder="Enter payment amount (TZS)">
+        <select class="calc-select" id="whType">
+          <option value="dividends">Dividends (10%)</option>
+          <option value="interest">Interest (10%)</option>
+          <option value="royalties">Royalties (15%)</option>
+          <option value="rent">Rent (10%)</option>
+          <option value="services">Services (5%)</option>
+          <option value="consulting">Consulting (15%)</option>
+        </select>
+        <button class="calc-btn" onclick="calculateWithholding()">Calculate WHT</button>
+        <div class="calc-result hidden" id="whResult"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCUMENTS PAGE -->
+  <div class="tool-page hidden" id="documentsPage">
+    <div style="max-width:900px;margin:0 auto;">
+      <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+        <div style="font-size:48px;margin-bottom:16px;" id="uploadIcon">📄</div>
+        <h3 id="uploadTitle">Upload Tax Document</h3>
+        <p style="color:#64748b;margin-top:8px;" id="uploadDesc">Click to upload or drag and drop PDF, DOC, DOCX, TXT, PNG, JPG</p>
+        <input type="file" id="fileInput" style="display:none;" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFileUpload(this)">
+      </div>
+      <div id="uploadProgress" class="hidden" style="margin-top:16px;text-align:center;">
+        <div style="background:#0f172a;border-radius:8px;padding:16px;border:1px solid #1e293b;">
+          <div style="color:#dfff00;font-weight:bold;">Uploading...</div>
+          <div style="width:100%;height:4px;background:#1e293b;border-radius:2px;margin-top:12px;overflow:hidden;">
+            <div id="progressBar" style="width:0%;height:100%;background:#dfff00;transition:width 0.3s;"></div>
+          </div>
         </div>
-    </div>
-
-    <div class="chat-area" id="chatPage">
-        <div class="welcome-message" id="welcomeMsg">
-            Ask me anything about Tanzanian tax law
+      </div>
+      <div style="margin-top:24px;">
+        <h3 style="color:#dfff00;margin-bottom:16px;font-size:18px;">📁 Uploaded Documents</h3>
+        <div id="documentsList" style="display:flex;flex-direction:column;gap:12px;">
+          <p style="color:#64748b;text-align:center;">No documents uploaded yet</p>
         </div>
-    </div>
-
-    <div class="tool-page hidden" id="calculatorsPage">
-        <div class="calculator-grid">
-            <div class="calc-card">
-                <h3>🧮 PAYE Calculator</h3>
-                <input type="number" class="calc-input" id="payeGross" placeholder="Enter gross salary (TZS)">
-                <button class="calc-btn" onclick="calculatePAYE()">Calculate Net Pay</button>
-                <div class="calc-result hidden" id="payeResult"></div>
-            </div>
-
-            <div class="calc-card">
-                <h3>🧮 VAT Calculator</h3>
-                <input type="number" class="calc-input" id="vatAmount" placeholder="Enter amount (TZS)">
-                <button class="calc-btn" onclick="calculateVAT()">Calculate VAT</button>
-                <div class="calc-result hidden" id="vatResult"></div>
-            </div>
-
-            <div class="calc-card">
-                <h3>🧮 SDL Calculator</h3>
-                <input type="number" class="calc-input" id="sdlPayroll" placeholder="Enter gross payroll (TZS)">
-                <button class="calc-btn" onclick="calculateSDL()">Calculate SDL</button>
-                <div class="calc-result hidden" id="sdlResult"></div>
-            </div>
-
-            <div class="calc-card">
-                <h3>🧮 WCF Calculator</h3>
-                <input type="number" class="calc-input" id="wcfPayroll" placeholder="Enter gross payroll (TZS)">
-                <button class="calc-btn" onclick="calculateWCF()">Calculate WCF</button>
-                <div class="calc-result hidden" id="wcfResult"></div>
-            </div>
-
-            <div class="calc-card">
-                <h3>🧮 Corporate Tax Calculator</h3>
-                <input type="number" class="calc-input" id="corpIncome" placeholder="Enter taxable income (TZS)">
-                <button class="calc-btn" onclick="calculateCorpTax()">Calculate Tax</button>
-                <div class="calc-result hidden" id="corpResult"></div>
-            </div>
-
-            <div class="calc-card">
-                <h3>🧮 Withholding Tax Calculator</h3>
-                <input type="number" class="calc-input" id="whAmount" placeholder="Enter payment amount (TZS)">
-                <select class="calc-select" id="whType">
-                    <option value="dividends">Dividends (10%)</option>
-                    <option value="interest">Interest (10%)</option>
-                    <option value="royalties">Royalties (15%)</option>
-                    <option value="rent">Rent (10%)</option>
-                    <option value="services">Services (5%)</option>
-                    <option value="consulting">Consulting (15%)</option>
-                </select>
-                <button class="calc-btn" onclick="calculateWithholding()">Calculate WHT</button>
-                <div class="calc-result hidden" id="whResult"></div>
-            </div>
+      </div>
+      <div id="docAnalysisSection" class="hidden" style="margin-top:24px;">
+        <h3 style="color:#dfff00;margin-bottom:16px;font-size:18px;">💬 Document Analysis</h3>
+        <div id="docChatArea" style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:16px;min-height:200px;max-height:400px;overflow-y:auto;margin-bottom:16px;">
+          <p style="color:#64748b;text-align:center;">Select a document and ask a question</p>
         </div>
-    </div>
-
-    <div class="tool-page hidden" id="documentsPage">
-        <div style="max-width:900px; margin:0 auto;">
-            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
-                <div class="upload-icon" id="uploadIcon">📄</div>
-                <h3 id="uploadTitle">Upload Tax Document</h3>
-                <p style="color:#64748b; margin-top:8px;" id="uploadDesc">Click to upload or drag and drop PDF, DOC, DOCX, TXT, PNG, JPG</p>
-                <input type="file" id="fileInput" style="display:none;" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleFileUpload(this)">
-            </div>
-
-            <div id="uploadProgress" class="hidden" style="margin-top:16px; text-align:center;">
-                <div style="background:#0f172a; border-radius:8px; padding:16px; border:1px solid #1e293b;">
-                    <div style="color:#dfff00; font-weight:bold;">Uploading...</div>
-                    <div style="width:100%; height:4px; background:#1e293b; border-radius:2px; margin-top:12px; overflow:hidden;">
-                        <div id="progressBar" style="width:0%; height:100%; background:#dfff00; transition:width 0.3s;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div style="margin-top:24px;">
-                <h3 style="color:#dfff00; margin-bottom:16px; font-size:18px;">📁 Uploaded Documents</h3>
-                <div id="documentsList" style="display:flex; flex-direction:column; gap:12px;">
-                    <p style="color:#64748b; text-align:center;" id="noDocsMsg">No documents uploaded yet</p>
-                </div>
-            </div>
-
-            <div id="docAnalysisSection" class="hidden" style="margin-top:24px;">
-                <h3 style="color:#dfff00; margin-bottom:16px; font-size:18px;">💬 Document Analysis</h3>
-                <div id="docChatArea" style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:16px; min-height:200px; max-height:400px; overflow-y:auto; margin-bottom:16px;">
-                    <p style="color:#64748b; text-align:center;" id="docChatPlaceholder">Select a document and ask a question to analyze it</p>
-                </div>
-                <div class="search-box" style="max-width:100%;">
-                    <input type="text" id="docQuestionInput" placeholder="Ask about this document..." style="flex:1;">
-                    <button onclick="analyzeDocument()" style="width:140px;">Analyze</button>
-                </div>
-            </div>
+        <div class="search-box" style="max-width:100%;">
+          <input type="text" id="docQuestionInput" placeholder="Ask about this document...">
+          <button onclick="analyzeDocument()">Analyze</button>
         </div>
+      </div>
     </div>
+  </div>
 
-    <div class="tool-page hidden" id="deadlinesPage">
-        <div class="deadline-list">
-            <div class="deadline-item">
-                <div><div class="deadline-name">Monthly VAT Return</div></div>
-                <div class="deadline-date">20th of each month</div>
-                <span class="deadline-status status-upcoming">Recurring</span>
-            </div>
-            <div class="deadline-item">
-                <div><div class="deadline-name">Monthly PAYE Return</div></div>
-                <div class="deadline-date">7th of each month</div>
-                <span class="deadline-status status-upcoming">Recurring</span>
-            </div>
-            <div class="deadline-item">
-                <div><div class="deadline-name">Annual Income Tax Return</div></div>
-                <div class="deadline-date">30th June</div>
-                <span class="deadline-status status-urgent">Annual</span>
-            </div>
-            <div class="deadline-item">
-                <div><div class="deadline-name">Provisional Tax Payment (Q1)</div></div>
-                <div class="deadline-date">31st March</div>
-                <span class="deadline-status status-upcoming">Quarterly</span>
-            </div>
+  <!-- DEADLINES PAGE -->
+  <div class="tool-page hidden" id="deadlinesPage">
+    <div class="deadline-list">
+      <div class="deadline-item"><div><div class="deadline-name">Monthly VAT Return</div></div><div class="deadline-date">20th of each month</div><span class="deadline-status status-upcoming">Recurring</span></div>
+      <div class="deadline-item"><div><div class="deadline-name">Monthly PAYE Return</div></div><div class="deadline-date">7th of each month</div><span class="deadline-status status-upcoming">Recurring</span></div>
+      <div class="deadline-item"><div><div class="deadline-name">Annual Income Tax Return</div></div><div class="deadline-date">30th June</div><span class="deadline-status status-urgent">Annual</span></div>
+      <div class="deadline-item"><div><div class="deadline-name">Provisional Tax Payment (Q1)</div></div><div class="deadline-date">31st March</div><span class="deadline-status status-upcoming">Quarterly</span></div>
+      <div class="deadline-item"><div><div class="deadline-name">Provisional Tax Payment (Q2)</div></div><div class="deadline-date">30th June</div><span class="deadline-status status-upcoming">Quarterly</span></div>
+      <div class="deadline-item"><div><div class="deadline-name">Provisional Tax Payment (Q3)</div></div><div class="deadline-date">30th September</div><span class="deadline-status status-upcoming">Quarterly</span></div>
+      <div class="deadline-item"><div><div class="deadline-name">Monthly SDL Return</div></div><div class="deadline-date">7th of each month</div><span class="deadline-status status-upcoming">Recurring</span></div>
+    </div>
+  </div>
+
+  <!-- BUSINESS SETUP PAGE -->
+  <div class="tool-page hidden" id="businessSetupPage">
+    <div class="setup-steps">
+      <div class="setup-step"><div class="step-number">1</div><div class="step-content"><h3>Register for TIN</h3><p>Apply for a Taxpayer Identification Number (TIN) at the Tanzania Revenue Authority (TRA). Required for all businesses and individuals earning income.</p></div></div>
+      <div class="setup-step"><div class="step-number">2</div><div class="step-content"><h3>Business Registration</h3><p>Register your business with BRELA (Business Registrations and Licensing Agency) to obtain a certificate of incorporation.</p></div></div>
+      <div class="setup-step"><div class="step-number">3</div><div class="step-content"><h3>VAT Registration</h3><p>If your annual turnover exceeds TZS 100 million, you must register for VAT with TRA.</p></div></div>
+      <div class="setup-step"><div class="step-number">4</div><div class="step-content"><h3>Tax Clearance Certificate</h3><p>Obtain a Tax Clearance Certificate (TCC) to prove tax compliance. Required for government tenders and contracts.</p></div></div>
+      <div class="setup-step"><div class="step-number">5</div><div class="step-content"><h3>NSSF & WCF Registration</h3><p>Register employees with NSSF (National Social Security Fund) and WCF (Workers' Compensation Fund).</p></div></div>
+    </div>
+  </div>
+
+  <!-- ADMIN PAGE -->
+  <div class="tool-page hidden" id="adminPage">
+    <div style="max-width:1200px;margin:0 auto;padding:20px;">
+      <h2 style="color:#dfff00;margin-bottom:24px;font-size:28px;">🔒 Admin Dashboard</h2>
+
+      <!-- Stats cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px;margin-bottom:30px;">
+        <div class="calc-card"><h3 style="color:#94a3b8;font-size:13px;margin-bottom:8px;">👥 Total Visitors</h3><div id="adminTotalVisitors" style="color:#dfff00;font-size:32px;font-weight:bold;">-</div></div>
+        <div class="calc-card"><h3 style="color:#94a3b8;font-size:13px;margin-bottom:8px;">📊 Total Visits</h3><div id="adminTotalVisits" style="color:#dfff00;font-size:32px;font-weight:bold;">-</div></div>
+        <div class="calc-card"><h3 style="color:#94a3b8;font-size:13px;margin-bottom:8px;">📅 Today Visitors</h3><div id="adminTodayVisitors" style="color:#dfff00;font-size:32px;font-weight:bold;">-</div></div>
+        <div class="calc-card"><h3 style="color:#94a3b8;font-size:13px;margin-bottom:8px;">👤 Total Users</h3><div id="adminTotalUsers" style="color:#dfff00;font-size:32px;font-weight:bold;">-</div></div>
+        <div class="calc-card"><h3 style="color:#94a3b8;font-size:13px;margin-bottom:8px;">💬 Total Sessions</h3><div id="adminTotalSessions" style="color:#dfff00;font-size:32px;font-weight:bold;">-</div></div>
+      </div>
+
+      <!-- Training Document Upload -->
+      <div class="calc-card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:16px;">📤 Upload Tax Law / Training Document</h3>
+        <p style="color:#64748b;font-size:13px;margin-bottom:16px;">Documents uploaded here are automatically used to improve AI answers. Upload TRA Acts, Finance Acts, practice notes, etc.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <input type="text" class="calc-input" id="trainingDocTitle" placeholder="Document title (e.g. Income Tax Act 2023)">
+          <select class="calc-input" id="trainingDocType" style="background:#020817;color:white;">
+            <option value="income_tax_act">Income Tax Act</option>
+            <option value="vat_act">VAT Act</option>
+            <option value="tax_administration">Tax Administration Act</option>
+            <option value="excise">Excise Legislation</option>
+            <option value="finance_act">Finance Act</option>
+            <option value="ruling">TRA Ruling</option>
+            <option value="practice_note">Practice Note</option>
+            <option value="guide">Tax Guide</option>
+            <option value="general">General</option>
+          </select>
         </div>
-    </div>
-
-    <div class="tool-page hidden" id="businessSetupPage">
-        <div class="setup-steps">
-            <div class="setup-step">
-                <div class="step-number">1</div>
-                <div class="step-content">
-                    <h3>Register for TIN</h3>
-                    <p>Apply for a Taxpayer Identification Number (TIN) at the Tanzania Revenue Authority (TRA).</p>
-                </div>
-            </div>
-            <div class="setup-step">
-                <div class="step-number">2</div>
-                <div class="step-content">
-                    <h3>Business Registration</h3>
-                    <p>Register your business with BRELA to obtain a certificate of incorporation.</p>
-                </div>
-            </div>
-            <div class="setup-step">
-                <div class="step-number">3</div>
-                <div class="step-content">
-                    <h3>VAT Registration</h3>
-                    <p>If your annual turnover exceeds TZS 100 million, you must register for VAT.</p>
-                </div>
-            </div>
-            <div class="setup-step">
-                <div class="step-number">4</div>
-                <div class="step-content">
-                    <h3>Tax Clearance</h3>
-                    <p>Obtain a Tax Clearance Certificate (TCC) to prove compliance.</p>
-                </div>
-            </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <select class="calc-input" id="trainingDocJurisdiction" style="background:#020817;color:white;">
+            <option value="Tanzania">🇹🇿 Tanzania</option>
+            <option value="Kenya">🇰🇪 Kenya</option>
+            <option value="Uganda">🇺🇬 Uganda</option>
+          </select>
+          <input type="file" class="calc-input" id="trainingDocFile" accept=".pdf,.doc,.docx,.txt" style="padding:10px;">
         </div>
-    </div>
+        <button class="calc-btn" onclick="uploadTrainingDocument()">📤 Upload Document</button>
+        <div id="trainingUploadResult" class="hidden" style="margin-top:12px;padding:12px;background:#020817;border-radius:8px;color:#94a3b8;"></div>
+      </div>
 
-    <!-- ADMIN PANEL - Only visible to admin users -->
-    <div class="tool-page hidden" id="adminPage">
-        <div style="max-width:1200px; margin:0 auto; padding:20px;">
-            <h2 style="color:#dfff00; margin-bottom:24px; font-size:28px;">🔒 Admin Dashboard</h2>
-
-            <!-- Visitor Analytics -->
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:30px;">
-                <div class="calc-card">
-                    <h3 style="color:#94a3b8; font-size:14px; margin-bottom:8px;">👥 Total Visitors</h3>
-                    <div id="adminTotalVisitors" style="color:#dfff00; font-size:36px; font-weight:bold;">-</div>
-                </div>
-                <div class="calc-card">
-                    <h3 style="color:#94a3b8; font-size:14px; margin-bottom:8px;">📊 Total Visits</h3>
-                    <div id="adminTotalVisits" style="color:#dfff00; font-size:36px; font-weight:bold;">-</div>
-                </div>
-                <div class="calc-card">
-                    <h3 style="color:#94a3b8; font-size:14px; margin-bottom:8px;">📅 Today's Visitors</h3>
-                    <div id="adminTodayVisitors" style="color:#dfff00; font-size:36px; font-weight:bold;">-</div>
-                </div>
-                <div class="calc-card">
-                    <h3 style="color:#94a3b8; font-size:14px; margin-bottom:8px;">🆕 Today's Unique</h3>
-                    <div id="adminTodayUnique" style="color:#dfff00; font-size:36px; font-weight:bold;">-</div>
-                </div>
-                <div class="calc-card">
-                    <h3 style="color:#94a3b8; font-size:14px; margin-bottom:8px;">👤 Total Users</h3>
-                    <div id="adminTotalUsers" style="color:#dfff00; font-size:36px; font-weight:bold;">-</div>
-                </div>
-                <div class="calc-card">
-                    <h3 style="color:#94a3b8; font-size:14px; margin-bottom:8px;">📝 Total Sessions</h3>
-                    <div id="adminTotalSessions" style="color:#dfff00; font-size:36px; font-weight:bold;">-</div>
-                </div>
-            </div>
-
-            <!-- Visitor Country Stats -->
-            <div class="calc-card" style="margin-bottom:20px;">
-                <h3>🌍 Visitors by Country</h3>
-                <div id="adminCountryStats" style="margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px;">
-                    <p style="color:#64748b; text-align:center;">Loading...</p>
-                </div>
-            </div>
-
-            <!-- Training Document Upload -->
-            <div class="calc-card" style="margin-bottom:20px;">
-                <h3>📤 Upload Training Documents</h3>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
-                    <input type="text" class="calc-input" id="trainingDocTitle" placeholder="Document title (e.g., Income Tax Act 2024)">
-                    <select class="calc-input" id="trainingDocType" style="background:#020817; color:white;">
-                        <option value="income_tax_act">Income Tax Act</option>
-                        <option value="vat_act">VAT Act</option>
-                        <option value="tax_administration">Tax Administration Act</option>
-                        <option value="excise">Excise Legislation</option>
-                        <option value="finance_act">Finance Act</option>
-                        <option value="ruling">TRA Ruling</option>
-                        <option value="practice_note">Practice Note</option>
-                        <option value="guide">Tax Guide</option>
-                        <option value="tribunal_decision">Tribunal Decision</option>
-                        <option value="court_judgment">Court Judgment</option>
-                        <option value="general">General</option>
-                    </select>
-                </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
-                    <select class="calc-input" id="trainingDocJurisdiction" style="background:#020817; color:white;">
-                        <option value="Tanzania">🇹🇿 Tanzania</option>
-                        <option value="Kenya">🇰🇪 Kenya</option>
-                        <option value="Uganda">🇺🇬 Uganda</option>
-                    </select>
-                    <input type="file" class="calc-input" id="trainingDocFile" accept=".pdf,.doc,.docx,.txt" style="padding:10px;">
-                </div>
-                <button class="calc-btn" onclick="uploadTrainingDocument()">📤 Upload Document</button>
-                <div id="trainingUploadResult" class="hidden" style="margin-top:12px; padding:12px; background:#020817; border-radius:8px; color:#94a3b8;"></div>
-            </div>
-
-            <!-- Training Documents List -->
-            <div class="calc-card" style="margin-bottom:20px;">
-                <h3>📚 Training Documents</h3>
-                <div id="adminTrainingDocsList" style="margin-top:16px; max-height:300px; overflow-y:auto;">
-                    <p style="color:#64748b; text-align:center;">Loading documents...</p>
-                </div>
-            </div>
-
-            <!-- User Management -->
-            <div class="calc-card" style="margin-bottom:20px;">
-                <h3>👥 Registered Users (Detailed)</h3>
-                <div id="adminUsersList" style="margin-top:16px; max-height:400px; overflow-y:auto;">
-                    <p style="color:#64748b; text-align:center;">Loading users...</p>
-                </div>
-            </div>
-
-            <!-- Recent Visitors -->
-            <div class="calc-card" style="margin-bottom:20px;">
-                <h3>🌐 Recent Visitors</h3>
-                <div id="adminRecentVisitors" style="margin-top:16px; max-height:300px; overflow-y:auto;">
-                    <p style="color:#64748b; text-align:center;">Loading visitors...</p>
-                </div>
-            </div>
-
-            <!-- Feedback Analytics -->
-            <div class="calc-card" style="margin-bottom:20px;">
-                <h3>📊 Feedback Analytics</h3>
-                <div id="adminFeedbackStats" style="margin-top:16px;">
-                    <p style="color:#64748b; text-align:center;">Loading feedback stats...</p>
-                </div>
-            </div>
-
-            <!-- Tax Precedent Engine -->
-            <div class="calc-card" style="margin-bottom:20px;">
-                <h3>⚖️ Tax Precedent Engine</h3>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
-                    <input type="text" class="calc-input" id="precedentCaseNumber" placeholder="Case Number (e.g., TRA-2024-001)">
-                    <input type="text" class="calc-input" id="precedentTitle" placeholder="Case Title">
-                </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
-                    <select class="calc-input" id="precedentCaseType" style="background:#020817; color:white;">
-                        <option value="audit_finding">TRA Audit Finding</option>
-                        <option value="objection">Objection Decision</option>
-                        <option value="appeals_board">Appeals Board Decision</option>
-                        <option value="appeals_tribunal">Appeals Tribunal Decision</option>
-                        <option value="court_judgment">Court Judgment</option>
-                    </select>
-                    <select class="calc-input" id="precedentJurisdiction" style="background:#020817; color:white;">
-                        <option value="Tanzania">🇹🇿 Tanzania</option>
-                        <option value="Kenya">🇰🇪 Kenya</option>
-                        <option value="Uganda">🇺🇬 Uganda</option>
-                    </select>
-                </div>
-                <input type="text" class="calc-input" id="precedentCourt" placeholder="Court Name (e.g., High Court of Tanzania)">
-                <input type="text" class="calc-input" id="precedentTaxpayer" placeholder="Taxpayer Name">
-                <textarea class="calc-input" id="precedentIssue" placeholder="Tax Issue" style="min-height:60px;"></textarea>
-                <textarea class="calc-input" id="precedentDecision" placeholder="Decision Summary" style="min-height:80px;"></textarea>
-                <textarea class="calc-input" id="precedentHoldings" placeholder="Key Holdings" style="min-height:60px;"></textarea>
-                <input type="text" class="calc-input" id="precedentLaw" placeholder="Statutory References (e.g., Section 12(1) of Income Tax Act)">
-                <button class="calc-btn" onclick="addTaxPrecedent()">➕ Add Tax Precedent</button>
-                <div id="precedentAddResult" class="hidden" style="margin-top:12px; padding:12px; background:#020817; border-radius:8px; color:#94a3b8;"></div>
-            </div>
-
-            <!-- Tax Precedents List -->
-            <div class="calc-card" style="margin-bottom:20px;">
-                <h3>📋 Tax Precedents Database</h3>
-                <div style="display:flex; gap:12px; margin-bottom:16px;">
-                    <input type="text" class="calc-input" id="precedentSearch" placeholder="Search precedents..." style="flex:1;">
-                    <button class="calc-btn" onclick="searchPrecedents()" style="width:120px;">🔍 Search</button>
-                </div>
-                <div id="adminPrecedentsList" style="max-height:300px; overflow-y:auto;">
-                    <p style="color:#64748b; text-align:center;">Loading precedents...</p>
-                </div>
-            </div>
-
-            <!-- Learning Repository -->
-            <div class="calc-card" style="margin-bottom:20px;">
-                <h3>🧠 Learning Repository</h3>
-                <p style="color:#64748b; margin-bottom:16px;">AI interactions stored for continuous improvement</p>
-                <div id="adminLearningRepo" style="max-height:300px; overflow-y:auto;">
-                    <p style="color:#64748b; text-align:center;">Loading learning data...</p>
-                </div>
-            </div>
-
-            <!-- Jurisdiction Management -->
-            <div class="calc-card" style="margin-bottom:20px;">
-                <h3>🌍 Jurisdiction Management</h3>
-                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:16px;">
-                    <input type="text" class="calc-input" id="jurisdictionCode" placeholder="Code (e.g., TZ)">
-                    <input type="text" class="calc-input" id="jurisdictionName" placeholder="Name (e.g., Tanzania)">
-                    <input type="text" class="calc-input" id="jurisdictionCurrency" placeholder="Currency (e.g., TZS)">
-                    <input type="text" class="calc-input" id="jurisdictionAuthority" placeholder="Tax Authority (e.g., TRA)">
-                </div>
-                <button class="calc-btn" onclick="addJurisdiction()">➕ Add Jurisdiction</button>
-                <div id="adminJurisdictionsList" style="margin-top:16px; max-height:200px; overflow-y:auto;">
-                    <p style="color:#64748b; text-align:center;">Loading jurisdictions...</p>
-                </div>
-            </div>
-
-            <!-- Audit Logs -->
-            <div class="calc-card">
-                <h3>📝 Audit Logs</h3>
-                <div id="adminAuditLogs" style="max-height:300px; overflow-y:auto; margin-top:16px;">
-                    <p style="color:#64748b; text-align:center;">Loading audit logs...</p>
-                </div>
-            </div>
+      <!-- Training Documents List -->
+      <div class="calc-card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:16px;">📚 Uploaded Training Documents</h3>
+        <div id="adminTrainingDocsList" style="max-height:300px;overflow-y:auto;">
+          <p style="color:#64748b;text-align:center;">Loading documents...</p>
         </div>
-    </div>
+      </div>
 
-    <div class="bottom-section" id="chatInput">
-        <form class="search-box" id="chatForm" onsubmit="return false;">
-            <input type="file" id="chatFileInput" style="display:none" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleChatFileUpload(this)">
-            <button type="button" onclick="document.getElementById('chatFileInput').click()" style="background:transparent;border:none;color:#dfff00;font-size:20px;cursor:pointer;padding:0 10px;" title="Attach document">📎</button>
-            <input type="text" id="userInput" placeholder="Ask your tax question..." autocomplete="off">
-            <button type="submit" id="askBtn">Ask</button>
-        </form>
+      <!-- User Management -->
+      <div class="calc-card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:16px;">👥 Registered Users</h3>
+        <div id="adminUsersList" style="max-height:400px;overflow-y:auto;">
+          <p style="color:#64748b;text-align:center;">Loading users...</p>
+        </div>
+      </div>
+
+      <!-- Visitor Stats -->
+      <div class="calc-card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:16px;">🌍 Visitors by Country</h3>
+        <div id="adminCountryStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;">
+          <p style="color:#64748b;text-align:center;">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Recent Visitors -->
+      <div class="calc-card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:16px;">🌐 Recent Visitors</h3>
+        <div id="adminRecentVisitors" style="max-height:300px;overflow-y:auto;">
+          <p style="color:#64748b;text-align:center;">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Feedback Stats -->
+      <div class="calc-card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:16px;">📊 Feedback Analytics</h3>
+        <div id="adminFeedbackStats">
+          <p style="color:#64748b;text-align:center;">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Audit Logs -->
+      <div class="calc-card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:16px;">📝 Audit Logs</h3>
+        <div id="adminAuditLogs" style="max-height:300px;overflow-y:auto;">
+          <p style="color:#64748b;text-align:center;">Loading...</p>
+        </div>
+      </div>
     </div>
+  </div>
+
+  <!-- CHAT INPUT -->
+  <div class="bottom-section" id="chatInput">
+    <form class="search-box" id="chatForm" onsubmit="return false;">
+      <input type="file" id="chatFileInput" style="display:none" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleChatFileUpload(this)">
+      <button type="button" onclick="document.getElementById('chatFileInput').click()" style="background:transparent;border:none;color:#dfff00;font-size:20px;cursor:pointer;padding:0 10px;" title="Attach document">📎</button>
+      <input type="text" id="userInput" placeholder="Ask your tax question..." autocomplete="off">
+      <button type="submit" id="askBtn">Ask</button>
+    </form>
+  </div>
 
 </div>
 
+<!-- LOGIN MODAL -->
 <div class="modal-overlay hidden" id="loginModal">
-    <div class="modal-content">
-        <button class="modal-close" onclick="hideLoginModal()">×</button>
-        <h2 class="modal-title" id="modalTitle">Login</h2>
-        <input type="email" class="modal-input" id="modalEmail" placeholder="Email">
-        <input type="password" class="modal-input" id="modalPassword" placeholder="Password">
-        <div id="countrySelect" style="display:none; margin-top:12px;">
-            <select class="modal-input" id="modalCountry" style="background:#020817; color:white;">
-                <option value="Tanzania">🇹🇿 Tanzania</option>
-                <option value="Kenya">🇰🇪 Kenya</option>
-                <option value="Uganda">🇺🇬 Uganda</option>
-            </select>
-        </div>
-        <button class="modal-btn" id="modalActionBtn" onclick="handleAuth()">Login</button>
-        <p style="text-align:center; margin-top:16px; color:#94a3b8; font-size:14px;">
-            <span id="modalSwitchText">Don't have an account?</span>
-            <span class="modal-link" id="modalSwitchLink" onclick="switchModalMode()">Sign up</span>
-        </p>
+  <div class="modal-content">
+    <button class="modal-close" onclick="hideLoginModal()">×</button>
+    <h2 class="modal-title" id="modalTitle">Login</h2>
+    <input type="email" class="modal-input" id="modalEmail" placeholder="Email">
+    <input type="password" class="modal-input" id="modalPassword" placeholder="Password">
+    <div id="countrySelect" style="display:none;margin-top:12px;">
+      <select class="modal-input" id="modalCountry" style="background:#020817;color:white;">
+        <option value="Tanzania">🇹🇿 Tanzania</option>
+        <option value="Kenya">🇰🇪 Kenya</option>
+        <option value="Uganda">🇺🇬 Uganda</option>
+      </select>
     </div>
+    <button class="modal-btn" id="modalActionBtn" onclick="handleAuth()">Login</button>
+    <p style="text-align:center;margin-top:16px;color:#94a3b8;font-size:14px;">
+      <span id="modalSwitchText">Don't have an account?</span>
+      <span class="modal-link" onclick="switchModalMode()"> <span id="modalSwitchLink">Sign up</span></span>
+    </p>
+  </div>
 </div>
 
 <script>
+// ========================
+// ROUTING
+// ========================
 const path = window.location.pathname;
 const currentTool = path === '/' ? 'tax_research' : path.replace('/', '');
-const currentToolName = {
-    'tax_research': 'Tax Research',
-    'documents': 'Documents',
-    'calculators': 'Calculators',
-    'deadlines': 'Deadlines',
-    'business_setup': 'Business Setup'
-}[currentTool] || 'Tax Research';
-
+const toolNames = {
+  'tax_research': 'Tax Research', 'documents': 'Documents',
+  'calculators': 'Calculators', 'deadlines': 'Deadlines',
+  'business_setup': 'Business Setup', 'admin': 'Admin Panel'
+};
+document.getElementById('toolName').textContent = toolNames[currentTool] || 'Tax Research';
 document.querySelectorAll('.tool-item').forEach(item => item.classList.remove('active'));
-const activeTool = document.getElementById(`tool-${currentTool}`);
+const activeTool = document.getElementById('tool-' + currentTool);
 if (activeTool) activeTool.classList.add('active');
 
-document.getElementById('toolName').textContent = currentToolName;
-
 const chatPage = document.getElementById('chatPage');
-const calculatorsPage = document.getElementById('calculatorsPage');
-const documentsPage = document.getElementById('documentsPage');
-const deadlinesPage = document.getElementById('deadlinesPage');
-const businessSetupPage = document.getElementById('businessSetupPage');
-const adminPage = document.getElementById('adminPage');
 const chatInput = document.getElementById('chatInput');
 
-if (currentTool === 'calculators') {
-    chatPage.classList.add('hidden'); chatInput.classList.add('hidden'); calculatorsPage.classList.remove('hidden');
-} else if (currentTool === 'documents') {
-    chatPage.classList.add('hidden'); chatInput.classList.add('hidden'); documentsPage.classList.remove('hidden');
-} else if (currentTool === 'deadlines') {
-    chatPage.classList.add('hidden'); chatInput.classList.add('hidden'); deadlinesPage.classList.remove('hidden');
-} else if (currentTool === 'business_setup') {
-    chatPage.classList.add('hidden'); chatInput.classList.add('hidden'); businessSetupPage.classList.remove('hidden');
-} else if (currentTool === 'admin') {
-    chatPage.classList.add('hidden'); chatInput.classList.add('hidden'); adminPage.classList.remove('hidden');
-    loadAdminDashboard();
+function showPage(pageId) {
+  ['chatPage','calculatorsPage','documentsPage','deadlinesPage','businessSetupPage','adminPage'].forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+  chatInput.classList.add('hidden');
+  document.getElementById(pageId).classList.remove('hidden');
+  if (pageId === 'chatPage') chatInput.classList.remove('hidden');
 }
+
+if (currentTool === 'calculators') showPage('calculatorsPage');
+else if (currentTool === 'documents') { showPage('documentsPage'); loadDocuments(); }
+else if (currentTool === 'deadlines') showPage('deadlinesPage');
+else if (currentTool === 'business_setup') showPage('businessSetupPage');
+else if (currentTool === 'admin') { showPage('adminPage'); }
+else showPage('chatPage');
 
 // ========================
 // AUTH
 // ========================
 let isLoggedIn = false;
-let userEmail = '';
+let userRole = '';
 let modalMode = 'login';
 
 function checkAuth() {
-    fetch('/api/auth/me', { credentials: 'include' })
-    .then(r => r.json())
-    .then(data => {
-        if (data.logged_in) {
-            isLoggedIn = true;
-            userEmail = data.email;
-            document.getElementById('guestAuth').style.display = 'none';
-            document.getElementById('userAuth').style.display = 'block';
-            document.getElementById('userEmail').textContent = userEmail;
-
-            // Show country badge
-            if (data.country) {
-                document.getElementById('userCountryBadge').textContent = '🌍 ' + data.country;
-            }
-
-            // Show role badge
-            if (data.role) {
-                document.getElementById('userRoleBadge').textContent = 'Role: ' + data.role;
-            }
-
-            // Show admin link if user is admin
-            if (data.role === 'admin') {
-                document.getElementById('adminLink').style.display = 'block';
-            }
-        } else {
-            isLoggedIn = false;
-            document.getElementById('guestAuth').style.display = 'block';
-            document.getElementById('userAuth').style.display = 'none';
-        }
-    });
+  fetch('/api/auth/me', { credentials: 'include' })
+  .then(r => r.json())
+  .then(data => {
+    if (data.logged_in) {
+      isLoggedIn = true;
+      userRole = data.role;
+      document.getElementById('guestAuth').style.display = 'none';
+      document.getElementById('userAuth').style.display = 'block';
+      document.getElementById('userEmail').textContent = data.email;
+      if (data.country) document.getElementById('userCountryBadge').textContent = '🌍 ' + data.country;
+      if (data.role) document.getElementById('userRoleBadge').textContent = 'Role: ' + data.role;
+      if (data.role === 'admin') {
+        document.getElementById('adminLink').style.display = 'block';
+      }
+      if (currentTool === 'admin' && data.role !== 'admin') {
+        window.location.href = '/';
+      }
+      if (currentTool === 'admin' && data.role === 'admin') {
+        loadAdminDashboard();
+      }
+    } else {
+      isLoggedIn = false;
+      document.getElementById('guestAuth').style.display = 'block';
+      document.getElementById('userAuth').style.display = 'none';
+      if (currentTool === 'admin') window.location.href = '/login';
+    }
+  }).catch(() => {});
 }
 
-window.addEventListener('DOMContentLoaded', checkAuth);
+window.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+  if (currentTool === 'tax_research' || currentTool === 'documents') loadSessions();
+});
 
 function logout() {
-    fetch('/api/auth/logout', {method: 'POST'})
-    .then(() => window.location.reload());
+  fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+  .then(() => window.location.href = '/');
 }
 
 function showLoginModal() {
-    document.getElementById('loginModal').classList.remove('hidden');
-    modalMode = 'login';
-    updateModalUI();
+  document.getElementById('loginModal').classList.remove('hidden');
+  modalMode = 'login';
+  updateModalUI();
 }
-
 function hideLoginModal() {
-    document.getElementById('loginModal').classList.add('hidden');
+  document.getElementById('loginModal').classList.add('hidden');
 }
-
 function switchModalMode() {
-    modalMode = modalMode === 'login' ? 'signup' : 'login';
-    updateModalUI();
-
-    // Show/hide country select for signup
-    const countryDiv = document.getElementById('countrySelect');
-    if (countryDiv) {
-        countryDiv.style.display = modalMode === 'signup' ? 'block' : 'none';
-    }
+  modalMode = modalMode === 'login' ? 'signup' : 'login';
+  updateModalUI();
+  document.getElementById('countrySelect').style.display = modalMode === 'signup' ? 'block' : 'none';
 }
-
 function updateModalUI() {
-    const title = document.getElementById('modalTitle');
-    const btn = document.getElementById('modalActionBtn');
-    const switchText = document.getElementById('modalSwitchText');
-    const switchLink = document.getElementById('modalSwitchLink');
-
-    if (modalMode === 'login') {
-        title.textContent = 'Login';
-        btn.textContent = 'Login';
-        switchText.textContent = "Don't have an account?";
-        switchLink.textContent = 'Sign up';
-    } else {
-        title.textContent = 'Sign Up';
-        btn.textContent = 'Create Account';
-        switchText.textContent = 'Already have an account?';
-        switchLink.textContent = 'Login';
-    }
+  const isLogin = modalMode === 'login';
+  document.getElementById('modalTitle').textContent = isLogin ? 'Login' : 'Sign Up';
+  document.getElementById('modalActionBtn').textContent = isLogin ? 'Login' : 'Create Account';
+  document.getElementById('modalSwitchText').textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
+  document.getElementById('modalSwitchLink').textContent = isLogin ? 'Sign up' : 'Login';
 }
 
 function handleAuth() {
-    const email = document.getElementById('modalEmail').value.trim();
-    const password = document.getElementById('modalPassword').value;
-    const country = document.getElementById('modalCountry') ? document.getElementById('modalCountry').value : 'Tanzania';
-
-    if (!email || !password) {
-        alert('Please fill in all fields');
-        return;
-    }
-
-    const endpoint = modalMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
-
-    const body = modalMode === 'login' 
-        ? JSON.stringify({email, password})
-        : JSON.stringify({email, password, country});
-
-    fetch(endpoint, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: body
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) {
-            alert(data.error);
-        } else {
-            hideLoginModal();
-            window.location.reload();
-        }
-    })
-    .catch(err => alert('Error: ' + err.message));
+  const email = document.getElementById('modalEmail').value.trim();
+  const password = document.getElementById('modalPassword').value;
+  const country = document.getElementById('modalCountry').value || 'Tanzania';
+  if (!email || !password) { alert('Please fill in all fields'); return; }
+  const endpoint = modalMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+  const body = modalMode === 'login' ? JSON.stringify({email, password}) : JSON.stringify({email, password, country});
+  document.getElementById('modalActionBtn').textContent = 'Please wait...';
+  document.getElementById('modalActionBtn').disabled = true;
+  fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'include', body })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('modalActionBtn').disabled = false;
+    updateModalUI();
+    if (data.error) { alert(data.error); }
+    else { hideLoginModal(); window.location.reload(); }
+  })
+  .catch(err => {
+    document.getElementById('modalActionBtn').disabled = false;
+    updateModalUI();
+    alert('Error: ' + err.message);
+  });
 }
 
 // ========================
 // GUEST LIMITS
 // ========================
 function showLimitBanner(message) {
-    const banner = document.getElementById('limitBanner');
-    const text = document.getElementById('limitBannerText');
-    text.textContent = message + ' ';
-    banner.classList.remove('hidden');
+  document.getElementById('limitBannerText').textContent = message + ' ';
+  document.getElementById('limitBanner').classList.remove('hidden');
 }
-
-function hideLimitBanner() {
-    document.getElementById('limitBanner').classList.add('hidden');
-}
-
 function handleGuestLimit(response) {
-    if (response.limit_reached) {
-        showLimitBanner(response.error);
-        setTimeout(() => showLoginModal(), 1500);
-        return true;
-    }
-    if (response.remaining !== undefined && response.remaining !== null && response.remaining <= 2) {
-        showLimitBanner(`You have ${response.remaining} free uses remaining.`);
-    }
-    return false;
+  if (response.limit_reached) {
+    showLimitBanner(response.error);
+    setTimeout(showLoginModal, 1500);
+    return true;
+  }
+  if (response.remaining !== undefined && response.remaining !== null && response.remaining <= 2) {
+    showLimitBanner('You have ' + response.remaining + ' free uses remaining.');
+  }
+  return false;
 }
 
 // ========================
-// STREAMING CHAT - FIXED
+// CHAT
 // ========================
-if (currentTool === 'tax_research' || currentTool === 'documents') {
-    const chatArea = document.getElementById('chatPage');
-    const userInput = document.getElementById('userInput');
-    const chatForm = document.getElementById('chatForm');
-    const askBtn = document.getElementById('askBtn');
-    const welcomeMsg = document.getElementById('welcomeMsg');
+let currentSessionId = null;
+let isStreaming = false;
+
+function loadSessions() {
+  fetch('/api/sessions', { credentials: 'include' })
+  .then(r => r.json())
+  .then(sessions => {
     const chatHistory = document.getElementById('chatHistory');
-
-    let currentSessionId = null;
-    let currentAiMsgDiv = null;  // Track the current AI message being streamed
-    let isStreaming = false;     // Track if we're currently streaming
-
-    window.addEventListener('DOMContentLoaded', () => {
-        loadSessions();
+    chatHistory.innerHTML = '';
+    (sessions || []).forEach(session => {
+      const div = document.createElement('div');
+      div.className = 'history-item' + (session.id === currentSessionId ? ' active' : '');
+      div.innerHTML = '<span class="history-item-text">' + escapeHtml(session.title) + '</span><button class="delete-btn" onclick="deleteSession(' + session.id + ',event)">×</button>';
+      div.onclick = () => loadSession(session.id);
+      chatHistory.appendChild(div);
     });
+  }).catch(() => {});
+}
 
-    chatForm.addEventListener('submit', sendMessage);
-    userInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') sendMessage(e);
+function loadSession(sessionId) {
+  if (isStreaming) return;
+  currentSessionId = sessionId;
+  fetch('/api/sessions/' + sessionId, { credentials: 'include' })
+  .then(r => r.json())
+  .then(messages => {
+    const chatArea = document.getElementById('chatPage');
+    chatArea.innerHTML = '';
+    (messages || []).forEach(msg => {
+      const div = document.createElement('div');
+      div.className = 'message ' + msg.role + '-message';
+      if (msg.role === 'ai') div.innerHTML = marked.parse(msg.content);
+      else div.textContent = msg.content;
+      chatArea.appendChild(div);
     });
-
-function sendMessage(e) {
-    e.preventDefault();
-    const question = userInput.value.trim();
-    if (!question || isStreaming) return;
-
-    if (welcomeMsg) welcomeMsg.style.display = 'none';
-
-    // Add user message
-    const userMsgDiv = document.createElement('div');
-    userMsgDiv.className = 'message user-message';
-    userMsgDiv.textContent = question;
-    chatArea.appendChild(userMsgDiv);
+    loadSessions();
     chatArea.scrollTop = chatArea.scrollHeight;
+  }).catch(() => {});
+}
 
-    userInput.value = '';
-    askBtn.disabled = true;
-    isStreaming = true;
-
-    // Add "Thinking..." placeholder
-    const thinkingDiv = document.createElement('div');
-    thinkingDiv.className = 'message ai-message';
-    thinkingDiv.style.minHeight = '40px';
-    thinkingDiv.innerHTML = '<span style="color:#64748b;font-style:italic;">Thinking...</span>';
-    chatArea.appendChild(thinkingDiv);
-    chatArea.scrollTop = chatArea.scrollHeight;
-
-    let fullText = '';
-    let sessionIdFromStream = null;
-    let isFirstToken = true;
-    let tokenCount = 0;
-
-    fetch('/ask', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ 
-            question: question,
-            session_id: currentSessionId,
-            tool: currentTool
-        })
-    })
-    .then(response => {
-        if (!response.ok) {
-            if (response.status === 403) {
-                return response.json().then(data => {
-                    throw new Error('403: ' + (data.error || 'Access denied'));
-                });
-            }
-            throw new Error('HTTP ' + response.status);
-        }
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        function readStream() {
-            return reader.read().then(({done, value}) => {
-                if (done) {
-                    isStreaming = false;
-                    askBtn.disabled = false;
-
-                    // Create final parsed div and replace old one
-                    const finalDiv = document.createElement('div');
-                    finalDiv.className = 'message ai-message';
-
-                    try {
-                        const parsed = marked.parse(fullText);
-                        finalDiv.innerHTML = parsed;
-                    } catch (err) {
-                        finalDiv.textContent = fullText;
-                    }
-
-                    // Add feedback buttons (simplified)
-                    const feedbackDiv = document.createElement('div');
-                    feedbackDiv.style.cssText = 'margin-top:8px; padding-top:8px; border-top:1px solid #1e293b; display:flex; gap:8px; opacity:0; transition:opacity 0.2s;';
-                    feedbackDiv.innerHTML = '<span style="color:#64748b; font-size:12px;">Was this helpful?</span>';
-
-                    finalDiv.appendChild(feedbackDiv);
-
-                    finalDiv.addEventListener('mouseenter', () => {
-                        feedbackDiv.style.opacity = '1';
-                    });
-                    finalDiv.addEventListener('mouseleave', () => {
-                        feedbackDiv.style.opacity = '0';
-                    });
-
-                    // Replace thinking div with final div
-                    thinkingDiv.parentNode.replaceChild(finalDiv, thinkingDiv);
-                    chatArea.scrollTop = chatArea.scrollHeight;
-
-                    if (sessionIdFromStream) {
-                        currentSessionId = sessionIdFromStream;
-                        loadSessions();
-                    }
-                    return;
-                }
-
-                const chunk = decoder.decode(value, {stream: true});
-                const lines = chunk.split('\n');
-
-                lines.forEach(line => {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-
-                            if (data.type === 'session') {
-                                sessionIdFromStream = data.session_id;
-                            } else if (data.type === 'token') {
-                                tokenCount++;
-                                fullText += data.content;
-
-                                // First token: clear "Thinking..." and show text
-                                if (isFirstToken) {
-                                    isFirstToken = false;
-                                    thinkingDiv.innerHTML = '';
-                                    thinkingDiv.style.whiteSpace = 'pre-wrap';
-                                }
-
-                                thinkingDiv.textContent = fullText;
-                                chatArea.scrollTop = chatArea.scrollHeight;
-                            } else if (data.type === 'done') {
-                                if (data.remaining !== undefined && data.remaining !== null && data.remaining <= 2) {
-                                    showLimitBanner('You have ' + data.remaining + ' free uses remaining.');
-                                }
-                            }
-                        } catch (e) {
-                            // Ignore parse errors
-                        }
-                    }
-                });
-
-                return readStream();
-            });
-        }
-
-        return readStream();
-    })
-    .catch(error => {
-        console.error('Stream error:', error);
-        isStreaming = false;
-        askBtn.disabled = false;
-
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'message ai-message';
-
-        if (error.message && error.message.includes('403')) {
-            errorDiv.innerHTML = '<span style="color:#f87171;">🚫 You have reached the free usage limit. <a href="/signup" style="color:#dfff00;text-decoration:underline;cursor:pointer;">Sign up</a> for unlimited access or <a onclick="showLoginModal()" style="color:#dfff00;text-decoration:underline;cursor:pointer;">login</a> to your account.</span>';
-        } else if (error.message && error.message.includes('429')) {
-            errorDiv.innerHTML = '<span style="color:#f87171;">⏳ Too many requests. Please wait a moment and try again.</span>';
-        } else if (error.message && error.message.includes('401')) {
-            errorDiv.innerHTML = '<span style="color:#f87171;">🔒 Please <a onclick="showLoginModal()" style="color:#dfff00;text-decoration:underline;cursor:pointer;">login</a> to continue.</span>';
-        } else {
-            errorDiv.innerHTML = '<span style="color:#f87171;">😕 Sorry, something went wrong. Please check your connection and try again. If the problem persists, <a href="/signup" style="color:#dfff00;text-decoration:underline;cursor:pointer;">create an account</a> for better reliability.</span>';
-        }
-
-        thinkingDiv.parentNode.replaceChild(errorDiv, thinkingDiv);
-    });
+function deleteSession(sessionId, event) {
+  event.stopPropagation();
+  if (!confirm('Delete this chat?')) return;
+  fetch('/api/sessions/' + sessionId, { method: 'DELETE', credentials: 'include' })
+  .then(() => {
+    if (currentSessionId === sessionId) newChat();
+    else loadSessions();
+  });
 }
 
 function newChat() {
-        currentSessionId = null;
-        currentAiMsgDiv = null;
-        isStreaming = false;
-        chatArea.innerHTML = '<div class="welcome-message" id="welcomeMsg">Ask me anything about Tanzanian tax law</div>';
-        userInput.value = '';
-        userInput.focus();
-        loadSessions();
-    }
+  currentSessionId = null;
+  isStreaming = false;
+  document.getElementById('chatPage').innerHTML = '<div class="welcome-message" id="welcomeMsg">Ask me anything about Tanzanian tax law</div>';
+  document.getElementById('userInput').value = '';
+  document.getElementById('userInput').focus();
+  loadSessions();
+}
 
-    function loadSessions() {
-        fetch('/api/sessions')
-        .then(response => response.json())
-        .then(sessions => {
-            chatHistory.innerHTML = '';
-            sessions.forEach(session => {
-                const div = document.createElement('div');
-                div.className = 'history-item' + (session.id === currentSessionId ? ' active' : '');
-                div.innerHTML = `
-                    <span class="history-item-text">${session.title}</span>
-                    <button class="delete-btn" onclick="deleteSession(${session.id}, event)">×</button>
-                `;
-                div.onclick = () => loadSession(session.id);
-                chatHistory.appendChild(div);
-            });
+document.getElementById('chatForm').addEventListener('submit', sendMessage);
+document.getElementById('userInput').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') sendMessage(e);
+});
+
+function sendMessage(e) {
+  e.preventDefault();
+  const question = document.getElementById('userInput').value.trim();
+  if (!question || isStreaming) return;
+
+  const chatArea = document.getElementById('chatPage');
+  const welcomeMsg = document.getElementById('welcomeMsg');
+  const askBtn = document.getElementById('askBtn');
+  if (welcomeMsg) welcomeMsg.style.display = 'none';
+
+  const userMsgDiv = document.createElement('div');
+  userMsgDiv.className = 'message user-message';
+  userMsgDiv.textContent = question;
+  chatArea.appendChild(userMsgDiv);
+  chatArea.scrollTop = chatArea.scrollHeight;
+
+  document.getElementById('userInput').value = '';
+  askBtn.disabled = true;
+  isStreaming = true;
+
+  const thinkingDiv = document.createElement('div');
+  thinkingDiv.className = 'message ai-message';
+  thinkingDiv.innerHTML = '<span style="color:#64748b;font-style:italic;">Thinking...</span>';
+  chatArea.appendChild(thinkingDiv);
+  chatArea.scrollTop = chatArea.scrollHeight;
+
+  let fullText = '';
+  let sessionIdFromStream = null;
+  let isFirstToken = true;
+
+  fetch('/ask', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    credentials: 'include',
+    body: JSON.stringify({ question, session_id: currentSessionId, tool: currentTool })
+  })
+  .then(response => {
+    if (!response.ok) {
+      return response.json().then(data => { throw new Error((data.error || 'Error') + '|' + response.status); });
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    function readStream() {
+      return reader.read().then(({done, value}) => {
+        if (done) {
+          isStreaming = false;
+          askBtn.disabled = false;
+          const finalDiv = document.createElement('div');
+          finalDiv.className = 'message ai-message';
+          try { finalDiv.innerHTML = marked.parse(fullText); }
+          catch { finalDiv.textContent = fullText; }
+          thinkingDiv.parentNode.replaceChild(finalDiv, thinkingDiv);
+          chatArea.scrollTop = chatArea.scrollHeight;
+          if (sessionIdFromStream) { currentSessionId = sessionIdFromStream; loadSessions(); }
+          return;
+        }
+        const chunk = decoder.decode(value, {stream: true});
+        chunk.split('\n').forEach(line => {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.type === 'session') sessionIdFromStream = data.session_id;
+              else if (data.type === 'token') {
+                fullText += data.content;
+                if (isFirstToken) { isFirstToken = false; thinkingDiv.innerHTML = ''; thinkingDiv.style.whiteSpace = 'pre-wrap'; }
+                thinkingDiv.textContent = fullText;
+                chatArea.scrollTop = chatArea.scrollHeight;
+              } else if (data.type === 'done' && data.remaining !== undefined && data.remaining !== null && data.remaining <= 2) {
+                showLimitBanner('You have ' + data.remaining + ' free uses remaining.');
+              }
+            } catch {}
+          }
         });
+        return readStream();
+      });
     }
-
-    function loadSession(sessionId) {
-        // Don't load a session while streaming
-        if (isStreaming) return;
-
-        currentSessionId = sessionId;
-        fetch(`/api/sessions/${sessionId}`)
-        .then(response => response.json())
-        .then(messages => {
-            chatArea.innerHTML = '';
-            welcomeMsg.style.display = 'none';
-            messages.forEach(msg => {
-                const div = document.createElement('div');
-                div.className = `message ${msg.role}-message`;
-                if (msg.role === 'ai') {
-                    div.innerHTML = marked.parse(msg.content);
-                } else {
-                    div.textContent = msg.content;
-                }
-                chatArea.appendChild(div);
-            });
-            loadSessions();
-            chatArea.scrollTop = chatArea.scrollHeight;
-        });
-    }
-
-    function deleteSession(sessionId, event) {
-        event.stopPropagation();
-        if (!confirm('Delete this chat?')) return;
-        fetch(`/api/sessions/${sessionId}`, {method: 'DELETE'})
-        .then(() => {
-            if (currentSessionId === sessionId) newChat();
-            else loadSessions();
-        });
-    }
+    return readStream();
+  })
+  .catch(error => {
+    isStreaming = false;
+    askBtn.disabled = false;
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'message ai-message';
+    const status = error.message && error.message.includes('|') ? error.message.split('|')[1] : '';
+    if (status === '403') errorDiv.innerHTML = '<span style="color:#f87171;">🚫 Free usage limit reached. <a onclick="showLoginModal()" style="color:#dfff00;cursor:pointer;">Sign up</a> for unlimited access.</span>';
+    else errorDiv.innerHTML = '<span style="color:#f87171;">😕 Something went wrong. Please try again.</span>';
+    thinkingDiv.parentNode.replaceChild(errorDiv, thinkingDiv);
+  });
 }
 
 // ========================
 // CALCULATORS
 // ========================
+function calcPost(url, body, resultId, renderFn) {
+  fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'include', body: JSON.stringify(body) })
+  .then(r => r.json())
+  .then(data => {
+    if (handleGuestLimit(data)) return;
+    const el = document.getElementById(resultId);
+    el.classList.remove('hidden');
+    el.innerHTML = renderFn(data);
+  });
+}
+function row(label, value) { return '<div class="calc-result-row"><span class="calc-result-label">' + label + '</span><span class="calc-result-value">' + value + '</span></div>'; }
+function money(v) { return Number(v).toLocaleString() + ' TZS'; }
+
 function calculatePAYE() {
-    const gross = parseFloat(document.getElementById('payeGross').value);
-    if (!gross) return;
-
-    fetch('/api/calculate/paye', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({gross_salary: gross})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (handleGuestLimit(data)) return;
-        const resultDiv = document.getElementById('payeResult');
-        resultDiv.classList.remove('hidden');
-        resultDiv.innerHTML = `
-            <div class="calc-result-row"><span class="calc-result-label">Gross Salary</span><span class="calc-result-value">${data.gross_salary.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">NSSF (10%)</span><span class="calc-result-value">${data.nssf.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">PAYE</span><span class="calc-result-value">${data.paye.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">Net Pay</span><span class="calc-result-value" style="color:#dfff00">${data.net_pay.toLocaleString()} TZS</span></div>
-        `;
-    });
+  const g = parseFloat(document.getElementById('payeGross').value); if (!g) return;
+  calcPost('/api/calculate/paye', {gross_salary: g}, 'payeResult', d =>
+    row('Gross Salary', money(d.gross_salary)) + row('NSSF (10%)', money(d.nssf)) + row('PAYE', money(d.paye)) +
+    '<div class="calc-result-row"><span class="calc-result-label">Net Pay</span><span class="calc-result-value" style="color:#dfff00">' + money(d.net_pay) + '</span></div>');
 }
-
 function calculateVAT() {
-    const amount = parseFloat(document.getElementById('vatAmount').value);
-    if (!amount) return;
-
-    fetch('/api/calculate/vat', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({amount: amount})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (handleGuestLimit(data)) return;
-        const resultDiv = document.getElementById('vatResult');
-        resultDiv.classList.remove('hidden');
-        resultDiv.innerHTML = `
-            <div class="calc-result-row"><span class="calc-result-label">Amount</span><span class="calc-result-value">${data.amount.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">VAT (18%)</span><span class="calc-result-value">${data.vat_amount.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">Total</span><span class="calc-result-value" style="color:#dfff00">${data.total.toLocaleString()} TZS</span></div>
-        `;
-    });
+  const a = parseFloat(document.getElementById('vatAmount').value); if (!a) return;
+  calcPost('/api/calculate/vat', {amount: a}, 'vatResult', d =>
+    row('Amount', money(d.amount)) + row('VAT (18%)', money(d.vat_amount)) +
+    '<div class="calc-result-row"><span class="calc-result-label">Total</span><span class="calc-result-value" style="color:#dfff00">' + money(d.total) + '</span></div>');
 }
-
 function calculateSDL() {
-    const payroll = parseFloat(document.getElementById('sdlPayroll').value);
-    if (!payroll) return;
-
-    fetch('/api/calculate/sdl', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({gross_payroll: payroll})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (handleGuestLimit(data)) return;
-        const resultDiv = document.getElementById('sdlResult');
-        resultDiv.classList.remove('hidden');
-        resultDiv.innerHTML = `
-            <div class="calc-result-row"><span class="calc-result-label">Gross Payroll</span><span class="calc-result-value">${data.gross_payroll.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">SDL (4%)</span><span class="calc-result-value">${data.sdl_amount.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">Total Cost</span><span class="calc-result-value" style="color:#dfff00">${data.total_cost.toLocaleString()} TZS</span></div>
-        `;
-    });
+  const p = parseFloat(document.getElementById('sdlPayroll').value); if (!p) return;
+  calcPost('/api/calculate/sdl', {gross_payroll: p}, 'sdlResult', d =>
+    row('Gross Payroll', money(d.gross_payroll)) + row('SDL (4%)', money(d.sdl_amount)) +
+    '<div class="calc-result-row"><span class="calc-result-label">Total Cost</span><span class="calc-result-value" style="color:#dfff00">' + money(d.total_cost) + '</span></div>');
 }
-
 function calculateWCF() {
-    const payroll = parseFloat(document.getElementById('wcfPayroll').value);
-    if (!payroll) return;
-
-    fetch('/api/calculate/wcf', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({gross_payroll: payroll})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (handleGuestLimit(data)) return;
-        const resultDiv = document.getElementById('wcfResult');
-        resultDiv.classList.remove('hidden');
-        resultDiv.innerHTML = `
-            <div class="calc-result-row"><span class="calc-result-label">Gross Payroll</span><span class="calc-result-value">${data.gross_payroll.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">WCF (1%)</span><span class="calc-result-value">${data.wcf_amount.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">Total Cost</span><span class="calc-result-value" style="color:#dfff00">${data.total_cost.toLocaleString()} TZS</span></div>
-        `;
-    });
+  const p = parseFloat(document.getElementById('wcfPayroll').value); if (!p) return;
+  calcPost('/api/calculate/wcf', {gross_payroll: p}, 'wcfResult', d =>
+    row('Gross Payroll', money(d.gross_payroll)) + row('WCF (1%)', money(d.wcf_amount)) +
+    '<div class="calc-result-row"><span class="calc-result-label">Total Cost</span><span class="calc-result-value" style="color:#dfff00">' + money(d.total_cost) + '</span></div>');
 }
-
 function calculateCorpTax() {
-    const income = parseFloat(document.getElementById('corpIncome').value);
-    if (!income) return;
-
-    fetch('/api/calculate/corporate_tax', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({taxable_income: income})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (handleGuestLimit(data)) return;
-        const resultDiv = document.getElementById('corpResult');
-        resultDiv.classList.remove('hidden');
-        resultDiv.innerHTML = `
-            <div class="calc-result-row"><span class="calc-result-label">Taxable Income</span><span class="calc-result-value">${data.taxable_income.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">Tax (30%)</span><span class="calc-result-value">${data.tax_amount.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">Net Income</span><span class="calc-result-value" style="color:#dfff00">${data.net_income.toLocaleString()} TZS</span></div>
-        `;
-    });
+  const i = parseFloat(document.getElementById('corpIncome').value); if (!i) return;
+  calcPost('/api/calculate/corporate_tax', {taxable_income: i}, 'corpResult', d =>
+    row('Taxable Income', money(d.taxable_income)) + row('Tax (30%)', money(d.tax_amount)) +
+    '<div class="calc-result-row"><span class="calc-result-label">Net Income</span><span class="calc-result-value" style="color:#dfff00">' + money(d.net_income) + '</span></div>');
 }
-
 function calculateWithholding() {
-    const amount = parseFloat(document.getElementById('whAmount').value);
-    const type = document.getElementById('whType').value;
-    if (!amount) return;
-
-    fetch('/api/calculate/withholding', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({payment_amount: amount, payment_type: type})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (handleGuestLimit(data)) return;
-        const resultDiv = document.getElementById('whResult');
-        resultDiv.classList.remove('hidden');
-        resultDiv.innerHTML = `
-            <div class="calc-result-row"><span class="calc-result-label">Payment Amount</span><span class="calc-result-value">${data.payment_amount.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">Type</span><span class="calc-result-value">${data.payment_type}</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">WHT Rate</span><span class="calc-result-value">${data.withholding_rate}</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">WHT Amount</span><span class="calc-result-value">${data.withholding_amount.toLocaleString()} TZS</span></div>
-            <div class="calc-result-row"><span class="calc-result-label">Net Payment</span><span class="calc-result-value" style="color:#dfff00">${data.net_payment.toLocaleString()} TZS</span></div>
-        `;
-    });
+  const a = parseFloat(document.getElementById('whAmount').value);
+  const t = document.getElementById('whType').value; if (!a) return;
+  calcPost('/api/calculate/withholding', {payment_amount: a, payment_type: t}, 'whResult', d =>
+    row('Payment Amount', money(d.payment_amount)) + row('Type', d.payment_type) + row('WHT Rate', d.withholding_rate) + row('WHT Amount', money(d.withholding_amount)) +
+    '<div class="calc-result-row"><span class="calc-result-label">Net Payment</span><span class="calc-result-value" style="color:#dfff00">' + money(d.net_payment) + '</span></div>');
 }
 
 // ========================
@@ -1838,925 +772,279 @@ function calculateWithholding() {
 let currentDocId = null;
 
 function handleFileUpload(input) {
-    const file = input.files[0];
-    if (!file) return;
-
-    const uploadArea = document.getElementById('uploadArea');
-    const uploadProgress = document.getElementById('uploadProgress');
-    const progressBar = document.getElementById('progressBar');
-
-    uploadArea.style.pointerEvents = 'none';
-    uploadArea.style.opacity = '0.6';
-    uploadProgress.classList.remove('hidden');
-
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-        progress += 10;
-        progressBar.style.width = progress + '%';
-        if (progress >= 90) clearInterval(progressInterval);
-    }, 100);
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    fetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        clearInterval(progressInterval);
-        progressBar.style.width = '100%';
-
-        if (handleGuestLimit(data)) {
-            setTimeout(() => {
-                uploadProgress.classList.add('hidden');
-                uploadArea.style.pointerEvents = 'auto';
-                uploadArea.style.opacity = '1';
-            }, 500);
-            return;
-        }
-
-        setTimeout(() => {
-            uploadProgress.classList.add('hidden');
-            uploadArea.style.pointerEvents = 'auto';
-            uploadArea.style.opacity = '1';
-            document.getElementById('uploadIcon').textContent = '✅';
-            document.getElementById('uploadTitle').textContent = 'Upload Another Document';
-            document.getElementById('uploadDesc').textContent = file.name + ' uploaded successfully';
-            loadDocuments();
-            input.value = '';
-        }, 500);
-    })
-    .catch(error => {
-        clearInterval(progressInterval);
-        uploadProgress.classList.add('hidden');
-        uploadArea.style.pointerEvents = 'auto';
-        uploadArea.style.opacity = '1';
-        alert('Upload failed: ' + error.message);
-    });
+  const file = input.files[0]; if (!file) return;
+  const uploadArea = document.getElementById('uploadArea');
+  const uploadProgress = document.getElementById('uploadProgress');
+  const progressBar = document.getElementById('progressBar');
+  uploadArea.style.pointerEvents = 'none'; uploadArea.style.opacity = '0.6';
+  uploadProgress.classList.remove('hidden');
+  let progress = 0;
+  const iv = setInterval(() => { progress += 10; progressBar.style.width = progress + '%'; if (progress >= 90) clearInterval(iv); }, 100);
+  const formData = new FormData();
+  formData.append('file', file);
+  fetch('/api/documents/upload', { method: 'POST', credentials: 'include', body: formData })
+  .then(r => r.json())
+  .then(data => {
+    clearInterval(iv); progressBar.style.width = '100%';
+    setTimeout(() => {
+      uploadProgress.classList.add('hidden');
+      uploadArea.style.pointerEvents = 'auto'; uploadArea.style.opacity = '1';
+      if (handleGuestLimit(data)) return;
+      document.getElementById('uploadIcon').textContent = '✅';
+      document.getElementById('uploadTitle').textContent = 'Upload Another Document';
+      document.getElementById('uploadDesc').textContent = file.name + ' uploaded successfully';
+      loadDocuments(); input.value = '';
+    }, 500);
+  })
+  .catch(err => {
+    clearInterval(iv); uploadProgress.classList.add('hidden');
+    uploadArea.style.pointerEvents = 'auto'; uploadArea.style.opacity = '1';
+    alert('Upload failed: ' + err.message);
+  });
 }
 
 function loadDocuments() {
-    fetch('/api/documents')
-    .then(response => response.json())
-    .then(docs => {
-        const list = document.getElementById('documentsList');
-
-        if (docs.length === 0) {
-            list.innerHTML = '<p style="color:#64748b; text-align:center;" id="noDocsMsg">No documents uploaded yet</p>';
-            return;
-        }
-
-        list.innerHTML = '';
-        docs.forEach(doc => {
-            const div = document.createElement('div');
-            div.style.cssText = 'background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;';
-            div.innerHTML = `
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <span style="font-size:24px;">📄</span>
-                    <div>
-                        <div style="color:white; font-weight:bold;">${doc.filename}</div>
-                        <div style="color:#64748b; font-size:12px;">${doc.uploaded_at}</div>
-                    </div>
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <button onclick="selectDocument(${doc.id}, '${doc.filename}', event)" style="background:#dfff00; border:none; padding:8px 16px; border-radius:8px; color:black; font-weight:bold; cursor:pointer;">Analyze</button>
-                    <button onclick="deleteDocument(${doc.id}, event)" style="background:#451a1a; border:none; padding:8px 16px; border-radius:8px; color:#f87171; font-weight:bold; cursor:pointer;">Delete</button>
-                </div>
-            `;
-            list.appendChild(div);
-        });
+  fetch('/api/documents', { credentials: 'include' })
+  .then(r => r.json())
+  .then(docs => {
+    const list = document.getElementById('documentsList');
+    if (!docs || docs.length === 0) { list.innerHTML = '<p style="color:#64748b;text-align:center;">No documents uploaded yet</p>'; return; }
+    list.innerHTML = '';
+    docs.forEach(doc => {
+      const div = document.createElement('div');
+      div.style.cssText = 'background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:center;';
+      div.innerHTML = '<div style="display:flex;align-items:center;gap:12px;"><span style="font-size:24px;">📄</span><div><div style="color:white;font-weight:bold;">' + escapeHtml(doc.filename) + '</div><div style="color:#64748b;font-size:12px;">' + doc.uploaded_at + '</div></div></div>' +
+        '<div style="display:flex;gap:8px;"><button onclick="selectDocument(' + doc.id + ',\'' + escapeHtml(doc.filename) + '\',event)" style="background:#dfff00;border:none;padding:8px 16px;border-radius:8px;color:black;font-weight:bold;cursor:pointer;">Analyze</button>' +
+        '<button onclick="deleteDocument(' + doc.id + ',event)" style="background:#451a1a;border:none;padding:8px 16px;border-radius:8px;color:#f87171;font-weight:bold;cursor:pointer;">Delete</button></div>';
+      list.appendChild(div);
     });
+  });
 }
 
 function selectDocument(docId, filename, event) {
-    event.stopPropagation();
-    currentDocId = docId;
-
-    const analysisSection = document.getElementById('docAnalysisSection');
-    const chatArea = document.getElementById('docChatArea');
-
-    analysisSection.classList.remove('hidden');
-    chatArea.innerHTML = `<p style="color:#64748b; text-align:center;">Document: <strong style="color:#dfff00;">${filename}</strong><br>Ask a question below to analyze it</p>`;
+  event.stopPropagation(); currentDocId = docId;
+  document.getElementById('docAnalysisSection').classList.remove('hidden');
+  document.getElementById('docChatArea').innerHTML = '<p style="color:#64748b;text-align:center;">Document: <strong style="color:#dfff00;">' + escapeHtml(filename) + '</strong><br>Ask a question below</p>';
 }
 
 function analyzeDocument() {
-    const input = document.getElementById('docQuestionInput');
-    const question = input.value.trim();
-    if (!question || !currentDocId) return;
-
-    const chatArea = document.getElementById('docChatArea');
-    const placeholder = document.getElementById('docChatPlaceholder');
-    if (placeholder) placeholder.remove();
-
-    const userMsg = document.createElement('div');
-    userMsg.style.cssText = 'background:#1e3a5f; color:white; padding:12px 16px; border-radius:12px; margin-bottom:12px; align-self:flex-end; max-width:80%;';
-    userMsg.textContent = question;
-    chatArea.appendChild(userMsg);
+  const input = document.getElementById('docQuestionInput');
+  const question = input.value.trim();
+  if (!question || !currentDocId) return;
+  const chatArea = document.getElementById('docChatArea');
+  const userMsg = document.createElement('div');
+  userMsg.style.cssText = 'background:#1e3a5f;color:white;padding:12px 16px;border-radius:12px;margin-bottom:12px;';
+  userMsg.textContent = question; chatArea.appendChild(userMsg);
+  input.value = '';
+  const typing = document.createElement('div');
+  typing.style.cssText = 'color:#64748b;font-style:italic;padding:12px;'; typing.id = 'docTyping';
+  typing.textContent = 'Analyzing...'; chatArea.appendChild(typing);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  fetch('/api/documents/analyze', { method: 'POST', headers: {'Content-Type':'application/json'}, credentials: 'include', body: JSON.stringify({document_id: currentDocId, question}) })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('docTyping')?.remove();
+    if (handleGuestLimit(data)) return;
+    const aiMsg = document.createElement('div');
+    aiMsg.style.cssText = 'background:#0f172a;border:1px solid #1e293b;color:#e2e8f0;padding:16px;border-radius:12px;margin-bottom:12px;line-height:1.6;';
+    aiMsg.innerHTML = data.error ? '<span style="color:#f87171;">Error: ' + data.error + '</span>' : marked.parse(data.answer);
+    chatArea.appendChild(aiMsg);
     chatArea.scrollTop = chatArea.scrollHeight;
-
-    input.value = '';
-
-    const typing = document.createElement('div');
-    typing.style.cssText = 'color:#64748b; font-style:italic; padding:12px;';
-    typing.textContent = 'Analyzing document...';
-    typing.id = 'docTyping';
-    chatArea.appendChild(typing);
-    chatArea.scrollTop = chatArea.scrollHeight;
-
-    fetch('/api/documents/analyze', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            document_id: currentDocId,
-            question: question
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        const typingEl = document.getElementById('docTyping');
-        if (typingEl) typingEl.remove();
-
-        if (handleGuestLimit(data)) return;
-
-        if (data.error) {
-            const errorMsg = document.createElement('div');
-            errorMsg.style.cssText = 'background:#451a1a; color:#f87171; padding:12px 16px; border-radius:12px; margin-bottom:12px;';
-            errorMsg.textContent = 'Error: ' + data.error;
-            chatArea.appendChild(errorMsg);
-        } else {
-            const aiMsg = document.createElement('div');
-            aiMsg.style.cssText = 'background:#0f172a; border:1px solid #1e293b; color:#e2e8f0; padding:16px; border-radius:12px; margin-bottom:12px; line-height:1.6;';
-            aiMsg.innerHTML = marked.parse(data.answer);
-            chatArea.appendChild(aiMsg);
-        }
-        chatArea.scrollTop = chatArea.scrollHeight;
-    })
-    .catch(error => {
-        const typingEl = document.getElementById('docTyping');
-        if (typingEl) typingEl.remove();
-
-        const errorMsg = document.createElement('div');
-        errorMsg.style.cssText = 'background:#451a1a; color:#f87171; padding:12px 16px; border-radius:12px; margin-bottom:12px;';
-        errorMsg.textContent = 'Error analyzing document';
-        chatArea.appendChild(errorMsg);
-        chatArea.scrollTop = chatArea.scrollHeight;
-    });
+  });
 }
 
 function deleteDocument(docId, event) {
-    event.stopPropagation();
-    if (!confirm('Delete this document?')) return;
-
-    fetch(`/api/documents/${docId}`, {method: 'DELETE'})
-    .then(() => {
-        if (currentDocId === docId) {
-            currentDocId = null;
-            document.getElementById('docAnalysisSection').classList.add('hidden');
-        }
-        loadDocuments();
-    });
+  event.stopPropagation();
+  if (!confirm('Delete this document?')) return;
+  fetch('/api/documents/' + docId, { method: 'DELETE', credentials: 'include' })
+  .then(() => { if (currentDocId === docId) { currentDocId = null; document.getElementById('docAnalysisSection').classList.add('hidden'); } loadDocuments(); });
 }
 
-if (currentTool === 'documents') {
-    window.addEventListener('DOMContentLoaded', loadDocuments);
+async function handleChatFileUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  const askBtn = document.getElementById('askBtn');
+  const origText = askBtn.textContent;
+  askBtn.textContent = 'Uploading...'; askBtn.disabled = true;
+  const formData = new FormData(); formData.append('file', file);
+  try {
+    const r = await fetch('/api/documents/upload', { method: 'POST', credentials: 'include', body: formData });
+    const data = await r.json();
+    askBtn.textContent = origText; askBtn.disabled = false;
+    if (data.error) { alert('Upload error: ' + data.error); return; }
+    const ui = document.getElementById('userInput');
+    ui.value = '[Document: ' + data.document.filename + '] ' + ui.value;
+    ui.focus();
+    const chatArea = document.getElementById('chatPage');
+    const docMsg = document.createElement('div');
+    docMsg.className = 'message ai-message';
+    docMsg.innerHTML = '<div style="color:#64748b;font-size:12px;padding:4px;">📎 Attached: <strong style="color:#dfff00;">' + escapeHtml(data.document.filename) + '</strong></div>';
+    chatArea.appendChild(docMsg);
+    chatArea.scrollTop = chatArea.scrollHeight;
+  } catch(err) { askBtn.textContent = origText; askBtn.disabled = false; alert('Upload failed'); }
+  input.value = '';
+}
+
+// ========================
+// ADMIN
+// ========================
+function loadAdminDashboard() {
+  fetch('/api/admin/visitors', { credentials: 'include' })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('adminTotalVisitors').textContent = data.total_visitors || 0;
+    document.getElementById('adminTotalVisits').textContent = data.total_visits || 0;
+    document.getElementById('adminTodayVisitors').textContent = data.today_visitors || 0;
+
+    const countryDiv = document.getElementById('adminCountryStats');
+    if (data.country_stats && data.country_stats.length > 0) {
+      countryDiv.innerHTML = '';
+      data.country_stats.forEach(s => {
+        countryDiv.innerHTML += '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px;text-align:center;"><div style="color:#dfff00;font-size:24px;font-weight:bold;">' + s.count + '</div><div style="color:#94a3b8;font-size:12px;">' + s.country + '</div></div>';
+      });
+    } else countryDiv.innerHTML = '<p style="color:#64748b;">No data yet</p>';
+
+    const recentDiv = document.getElementById('adminRecentVisitors');
+    if (data.recent_visitors && data.recent_visitors.length > 0) {
+      recentDiv.innerHTML = '';
+      data.recent_visitors.forEach(v => {
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid #1e293b;font-size:13px;';
+        div.innerHTML = '<span style="color:#94a3b8;">' + v.time + '</span><span style="color:white;">' + v.ip + '</span><span style="color:#64748b;">' + (v.is_logged_in ? '👤 User' : '👻 Guest') + '</span><span style="color:#dfff00;">' + (v.country || '—') + '</span>';
+        recentDiv.appendChild(div);
+      });
+    } else recentDiv.innerHTML = '<p style="color:#64748b;text-align:center;">No visitors yet</p>';
+  }).catch(() => {});
+
+  fetch('/api/admin/stats', { credentials: 'include' })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('adminTotalUsers').textContent = data.users?.total || 0;
+    document.getElementById('adminTotalSessions').textContent = data.activity?.sessions || 0;
+  }).catch(() => {});
+
+  loadAdminUsersDetailed();
+  loadAdminTrainingDocs();
+  loadAdminFeedbackStats();
+  loadAdminAuditLogs();
+}
+
+function loadAdminUsersDetailed() {
+  const list = document.getElementById('adminUsersList');
+  fetch('/api/admin/users-detailed', { credentials: 'include' })
+  .then(r => r.json())
+  .then(users => {
+    if (!users || users.length === 0) { list.innerHTML = '<p style="color:#64748b;text-align:center;">No users yet</p>'; return; }
+    list.innerHTML = '';
+    users.forEach(u => {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #1e293b;';
+      div.innerHTML = '<div style="flex:1;"><div style="color:white;font-weight:bold;">' + escapeHtml(u.email) + '</div><div style="color:#64748b;font-size:12px;">' + (u.country||'?') + ' | Sessions: ' + (u.session_count||0) + ' | Docs: ' + (u.document_count||0) + '</div><div style="color:#94a3b8;font-size:11px;">Joined: ' + (u.created_at||'?') + '</div></div>' +
+        '<select onchange="updateUserRole(' + u.id + ',this.value)" style="background:#0f172a;color:white;border:1px solid #1e293b;padding:4px 8px;border-radius:4px;margin-left:8px;">' +
+        '<option value="user"' + (u.role==='user'?' selected':'') + '>User</option>' +
+        '<option value="tax_professional"' + (u.role==='tax_professional'?' selected':'') + '>Tax Pro</option>' +
+        '<option value="admin"' + (u.role==='admin'?' selected':'') + '>Admin</option>' +
+        '</select>';
+      list.appendChild(div);
+    });
+  }).catch(() => { list.innerHTML = '<p style="color:#f87171;text-align:center;">Error loading users</p>'; });
+}
+
+function updateUserRole(userId, newRole) {
+  if (!confirm('Change role to ' + newRole + '?')) { loadAdminUsersDetailed(); return; }
+  fetch('/api/admin/users/' + userId + '/role', {
+    method: 'PUT', headers: {'Content-Type':'application/json'}, credentials: 'include',
+    body: JSON.stringify({role: newRole})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) alert('Error: ' + data.error);
+    else { alert('Role updated!'); loadAdminUsersDetailed(); }
+  });
+}
+
+function loadAdminTrainingDocs() {
+  const list = document.getElementById('adminTrainingDocsList');
+  fetch('/api/admin/training-docs', { credentials: 'include' })
+  .then(r => r.json())
+  .then(docs => {
+    if (!docs || docs.length === 0) { list.innerHTML = '<p style="color:#64748b;text-align:center;">No training documents yet. Upload tax laws above to improve AI answers.</p>'; return; }
+    list.innerHTML = '';
+    docs.forEach(d => {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #1e293b;';
+      div.innerHTML = '<div><div style="color:white;font-weight:bold;">' + escapeHtml(d.title) + '</div><div style="color:#64748b;font-size:12px;">' + d.doc_type + ' | ' + d.jurisdiction + ' | ' + d.created_at + '</div></div>' +
+        '<button onclick="deleteTrainingDoc(' + d.id + ')" style="background:#451a1a;border:none;color:#f87171;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">Delete</button>';
+      list.appendChild(div);
+    });
+  }).catch(() => { list.innerHTML = '<p style="color:#f87171;text-align:center;">Error loading documents</p>'; });
+}
+
+function uploadTrainingDocument() {
+  const title = document.getElementById('trainingDocTitle').value.trim();
+  const docType = document.getElementById('trainingDocType').value;
+  const jurisdiction = document.getElementById('trainingDocJurisdiction').value;
+  const fileInput = document.getElementById('trainingDocFile');
+  const resultDiv = document.getElementById('trainingUploadResult');
+  if (!title || !fileInput.files[0]) { resultDiv.textContent = 'Please enter a title and select a file.'; resultDiv.classList.remove('hidden'); return; }
+  resultDiv.textContent = 'Uploading and processing...'; resultDiv.classList.remove('hidden');
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('title', title); formData.append('doc_type', docType); formData.append('jurisdiction', jurisdiction);
+  fetch('/api/admin/training-docs/upload', { method: 'POST', credentials: 'include', body: formData })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { resultDiv.textContent = '❌ Error: ' + data.error; return; }
+    resultDiv.style.color = '#22c55e';
+    resultDiv.textContent = '✅ Document uploaded! AI will now use it to answer questions.';
+    document.getElementById('trainingDocTitle').value = '';
+    fileInput.value = '';
+    setTimeout(() => { resultDiv.classList.add('hidden'); resultDiv.style.color = '#94a3b8'; }, 4000);
+    loadAdminTrainingDocs();
+  }).catch(err => { resultDiv.textContent = '❌ Error: ' + err.message; });
+}
+
+function deleteTrainingDoc(id) {
+  if (!confirm('Delete this training document?')) return;
+  fetch('/api/admin/training-docs/' + id, { method: 'DELETE', credentials: 'include' })
+  .then(() => loadAdminTrainingDocs());
+}
+
+function loadAdminFeedbackStats() {
+  fetch('/api/feedback/stats', { credentials: 'include' })
+  .then(r => r.json())
+  .then(stats => {
+    document.getElementById('adminFeedbackStats').innerHTML =
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">' +
+      '<div style="text-align:center;"><div style="color:#22c55e;font-size:24px;font-weight:bold;">' + (stats.helpful||0) + '</div><div style="color:#94a3b8;font-size:12px;">Helpful</div></div>' +
+      '<div style="text-align:center;"><div style="color:#eab308;font-size:24px;font-weight:bold;">' + (stats.incomplete||0) + '</div><div style="color:#94a3b8;font-size:12px;">Partial</div></div>' +
+      '<div style="text-align:center;"><div style="color:#ef4444;font-size:24px;font-weight:bold;">' + (stats.incorrect||0) + '</div><div style="color:#94a3b8;font-size:12px;">Incorrect</div></div>' +
+      '</div>';
+  }).catch(() => {});
+}
+
+function loadAdminAuditLogs() {
+  const list = document.getElementById('adminAuditLogs');
+  fetch('/api/admin/audit-logs', { credentials: 'include' })
+  .then(r => r.json())
+  .then(logs => {
+    if (!logs || logs.length === 0) { list.innerHTML = '<p style="color:#64748b;text-align:center;">No logs yet</p>'; return; }
+    list.innerHTML = '';
+    logs.forEach(l => {
+      const div = document.createElement('div');
+      div.style.cssText = 'padding:8px;border-bottom:1px solid #1e293b;font-size:13px;';
+      div.innerHTML = '<span style="color:#94a3b8;">[' + l.created_at + ']</span> <span style="color:#dfff00;">' + l.action + '</span>' + (l.entity_type ? ' <span style="color:#64748b;">' + l.entity_type + '</span>' : '');
+      list.appendChild(div);
+    });
+  }).catch(() => { list.innerHTML = '<p style="color:#f87171;text-align:center;">Error</p>'; });
 }
 
 // ========================
 // UTILITIES
 // ========================
 function escapeHtml(text) {
-    if (!text) return '';
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+  if (!text) return '';
+  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
-
-// ========================
-// FEEDBACK SYSTEM
-// ========================
-function submitFeedback(sessionId, question, answer, feedbackType) {
-    fetch('/api/feedback', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            session_id: sessionId,
-            question: question,
-            answer: answer,
-            feedback_type: feedbackType
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.message) {
-            alert('Thank you for your feedback!');
-        } else {
-            console.error('Feedback error:', data.error);
-        }
-    })
-    .catch(err => console.error('Feedback submit error:', err));
-}
-
-
-// ========================
-// ADMIN DASHBOARD FUNCTIONS
-// ========================
-
-function loadAdminDashboard() {
-    // Load visitor stats
-    fetch('/api/admin/visitors')
-    .then(r => r.json())
-    .then(data => {
-        document.getElementById('adminTotalVisitors').textContent = data.total_visitors || 0;
-        document.getElementById('adminTotalVisits').textContent = data.total_visits || 0;
-        document.getElementById('adminTodayVisitors').textContent = data.today_visitors || 0;
-        document.getElementById('adminTodayUnique').textContent = data.today_unique || 0;
-
-        // Country stats
-        const countryDiv = document.getElementById('adminCountryStats');
-        if (data.country_stats && data.country_stats.length > 0) {
-            countryDiv.innerHTML = '';
-            data.country_stats.forEach(stat => {
-                const div = document.createElement('div');
-                div.style.cssText = 'background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:12px; text-align:center;';
-                div.innerHTML = '<div style="color:#dfff00; font-size:24px; font-weight:bold;">' + stat.count + '</div><div style="color:#94a3b8; font-size:12px;">' + stat.country + '</div>';
-                countryDiv.appendChild(div);
-            });
-        } else {
-            countryDiv.innerHTML = '<p style="color:#64748b; text-align:center;">No country data</p>';
-        }
-
-        // Recent visitors
-        const recentDiv = document.getElementById('adminRecentVisitors');
-        if (data.recent_visitors && data.recent_visitors.length > 0) {
-            recentDiv.innerHTML = '';
-            data.recent_visitors.forEach(v => {
-                const div = document.createElement('div');
-                div.style.cssText = 'display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #1e293b; font-size:13px;';
-                div.innerHTML = '<span style="color:#94a3b8;">' + v.time + '</span> <span style="color:white;">' + v.ip + '</span> <span style="color:#64748b;">' + (v.is_logged_in ? '👤 Logged In' : '👤 Guest') + '</span> <span style="color:#dfff00;">' + (v.country || 'Unknown') + '</span>';
-                recentDiv.appendChild(div);
-            });
-        } else {
-            recentDiv.innerHTML = '<p style="color:#64748b; text-align:center;">No recent visitors</p>';
-        }
-    })
-    .catch(err => console.error('Visitor stats error:', err));
-
-    // Load user stats
-    fetch('/api/admin/stats')
-    .then(r => r.json())
-    .then(data => {
-        if (data.users) {
-            document.getElementById('adminTotalUsers').textContent = data.users.total || 0;
-            document.getElementById('adminTotalSessions').textContent = data.activity.sessions || 0;
-        }
-    })
-    .catch(err => console.error('Admin stats error:', err));
-
-    // Load detailed users
-    loadAdminUsersDetailed();
-
-    // Load training documents
-    loadAdminTrainingDocs();
-
-    // Load feedback stats
-    loadAdminFeedbackStats();
-
-    // Load audit logs
-    loadAdminAuditLogs();
-}
-
-function loadAdminUsers() {
-    const list = document.getElementById('adminUsersList');
-    fetch('/api/admin/users')
-    .then(r => r.json())
-    .then(users => {
-        if (users.length === 0) {
-            list.innerHTML = '<p style="color:#64748b; text-align:center;">No users</p>';
-            return;
-        }
-
-        list.innerHTML = '';
-        users.forEach(u => {
-            const div = document.createElement('div');
-            div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #1e293b;';
-            div.innerHTML = '<div><div style="color:white;">' + escapeHtml(u.email) + '</div><div style="color:#64748b; font-size:12px;">' + u.country + ' | ' + u.role + '</div></div>' +
-                '<select onchange="updateUserRole(' + u.id + ', this.value)" style="background:#0f172a; color:white; border:1px solid #1e293b; padding:4px 8px; border-radius:4px;">' +
-                '<option value="user" ' + (u.role === 'user' ? 'selected' : '') + '>User</option>' +
-                '<option value="tax_professional" ' + (u.role === 'tax_professional' ? 'selected' : '') + '>Tax Pro</option>' +
-                '<option value="admin" ' + (u.role === 'admin' ? 'selected' : '') + '>Admin</option>' +
-                '</select>';
-            list.appendChild(div);
-        });
-    })
-    .catch(err => {
-        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error loading users</p>';
-    });
-}
-
-function updateUserRole(userId, newRole) {
-    fetch('/api/admin/users/' + userId + '/role', {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({role: newRole})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.message) {
-            alert('Role updated!');
-            loadAdminUsers();
-        }
-    })
-    .catch(err => console.error('Role update error:', err));
-}
-
-function loadAdminKnowledge() {
-    const list = document.getElementById('adminKnowledgeList');
-    fetch('/api/admin/knowledge-base')
-    .then(r => r.json())
-    .then(entries => {
-        if (entries.length === 0) {
-            list.innerHTML = '<p style="color:#64748b; text-align:center;">No knowledge entries</p>';
-            return;
-        }
-
-        list.innerHTML = '';
-        entries.forEach(e => {
-            const div = document.createElement('div');
-            div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #1e293b;';
-            div.innerHTML = '<div><div style="color:white;">' + escapeHtml(e.title) + '</div><div style="color:#64748b; font-size:12px;">' + e.category + ' | ' + e.source + '</div></div>' +
-                '<button onclick="deleteKnowledgeEntry(' + e.id + ')" style="background:#451a1a; border:none; color:#f87171; padding:4px 8px; border-radius:4px; cursor:pointer;">Delete</button>';
-            list.appendChild(div);
-        });
-    })
-    .catch(err => {
-        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error loading knowledge base</p>';
-    });
-}
-
-function buildKnowledgeBase() {
-    fetch('/api/admin/build-kb', {method: 'POST'})
-    .then(r => r.json())
-    .then(data => {
-        alert(data.message || 'Knowledge base built!');
-        loadAdminKnowledge();
-    })
-    .catch(err => console.error('Build KB error:', err));
-}
-
-function loadAdminFeedbackStats() {
-    const div = document.getElementById('adminFeedbackStats');
-    fetch('/api/feedback/stats')
-    .then(r => r.json())
-    .then(stats => {
-        div.innerHTML = '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">' +
-            '<div style="text-align:center;"><div style="color:#22c55e; font-size:24px; font-weight:bold;">' + (stats.helpful || 0) + '</div><div style="color:#94a3b8; font-size:12px;">Correct</div></div>' +
-            '<div style="text-align:center;"><div style="color:#eab308; font-size:24px; font-weight:bold;">' + (stats.incomplete || 0) + '</div><div style="color:#94a3b8; font-size:12px;">Partial</div></div>' +
-            '<div style="text-align:center;"><div style="color:#ef4444; font-size:24px; font-weight:bold;">' + (stats.incorrect || 0) + '</div><div style="color:#94a3b8; font-size:12px;">Incorrect</div></div>' +
-            '</div>';
-    })
-    .catch(err => {
-        div.innerHTML = '<p style="color:#f87171; text-align:center;">Error loading stats</p>';
-    });
-}
-
-function loadAdminAuditLogs() {
-    const list = document.getElementById('adminAuditLogs');
-    fetch('/api/admin/audit-logs')
-    .then(r => r.json())
-    .then(logs => {
-        if (logs.length === 0) {
-            list.innerHTML = '<p style="color:#64748b; text-align:center;">No audit logs</p>';
-            return;
-        }
-
-        list.innerHTML = '';
-        logs.forEach(l => {
-            const div = document.createElement('div');
-            div.style.cssText = 'padding:8px; border-bottom:1px solid #1e293b; font-size:13px;';
-            div.innerHTML = '<span style="color:#94a3b8;">[' + l.created_at + ']</span> <span style="color:#dfff00;">' + l.action + '</span> <span style="color:#94a3b8;">' + l.entity_type + '</span>';
-            list.appendChild(div);
-        });
-    })
-    .catch(err => {
-        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error loading logs</p>';
-    });
-}
-
-function deleteKnowledgeEntry(id) {
-    if (!confirm('Delete this knowledge entry?')) return;
-
-    fetch('/api/articles/' + id, {method: 'DELETE'})
-    .then(() => loadAdminKnowledge())
-    .catch(err => console.error('Delete error:', err));
-}
-
-function showAddKnowledgeModal() {
-    const title = prompt('Enter knowledge title:');
-    if (!title) return;
-
-    const content = prompt('Enter knowledge content:');
-    if (!content) return;
-
-    fetch('/api/knowledge-base/add', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            title: title,
-            content: content,
-            category: 'tax_research',
-            source: 'manual'
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        alert(data.message || 'Knowledge added!');
-        loadAdminKnowledge();
-    })
-    .catch(err => console.error('Add knowledge error:', err));
-}
-
-
-function loadAdminUsersDetailed() {
-    const list = document.getElementById('adminUsersList');
-    fetch('/api/admin/users-detailed')
-    .then(r => r.json())
-    .then(users => {
-        if (users.length === 0) {
-            list.innerHTML = '<p style="color:#64748b; text-align:center;">No users</p>';
-            return;
-        }
-
-        list.innerHTML = '';
-        users.forEach(u => {
-            const div = document.createElement('div');
-            div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #1e293b;';
-            div.innerHTML = '<div style="flex:1;"><div style="color:white; font-weight:bold;">' + escapeHtml(u.email) + '</div><div style="color:#64748b; font-size:12px;">' + (u.country || 'Unknown') + ' | ' + u.role + ' | Sessions: ' + (u.session_count || 0) + ' | Docs: ' + (u.document_count || 0) + '</div><div style="color:#94a3b8; font-size:11px;">Joined: ' + (u.created_at || 'Unknown') + '</div></div>' +
-                '<select onchange="updateUserRole(' + u.id + ', this.value)" style="background:#0f172a; color:white; border:1px solid #1e293b; padding:4px 8px; border-radius:4px; margin-left:8px;">' +
-                '<option value="user" ' + (u.role === 'user' ? 'selected' : '') + '>User</option>' +
-                '<option value="tax_professional" ' + (u.role === 'tax_professional' ? 'selected' : '') + '>Tax Pro</option>' +
-                '<option value="admin" ' + (u.role === 'admin' ? 'selected' : '') + '>Admin</option>' +
-                '</select>';
-            list.appendChild(div);
-        });
-    })
-    .catch(err => {
-        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error loading users</p>';
-    });
-}
-
-function loadAdminTrainingDocs() {
-    const list = document.getElementById('adminTrainingDocsList');
-    fetch('/api/admin/training-docs')
-    .then(r => r.json())
-    .then(docs => {
-        if (docs.length === 0) {
-            list.innerHTML = '<p style="color:#64748b; text-align:center;">No training documents</p>';
-            return;
-        }
-
-        list.innerHTML = '';
-        docs.forEach(d => {
-            const div = document.createElement('div');
-            div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #1e293b;';
-            div.innerHTML = '<div><div style="color:white; font-weight:bold;">' + escapeHtml(d.title) + '</div><div style="color:#64748b; font-size:12px;">' + d.doc_type + ' | ' + d.jurisdiction + ' | ' + d.source + '</div></div>' +
-                '<button onclick="deleteTrainingDoc(' + d.id + ')" style="background:#451a1a; border:none; color:#f87171; padding:4px 12px; border-radius:4px; cursor:pointer; font-size:12px;">Delete</button>';
-            list.appendChild(div);
-        });
-    })
-    .catch(err => {
-        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error loading documents</p>';
-    });
-}
-
-function uploadTrainingDocument() {
-    const title = document.getElementById('trainingDocTitle').value.trim();
-    const docType = document.getElementById('trainingDocType').value;
-    const jurisdiction = document.getElementById('trainingDocJurisdiction').value;
-    const fileInput = document.getElementById('trainingDocFile');
-    const resultDiv = document.getElementById('trainingUploadResult');
-
-    if (!title || !fileInput.files[0]) {
-        resultDiv.textContent = 'Please enter title and select a file';
-        resultDiv.classList.remove('hidden');
-        return;
-    }
-
-    resultDiv.textContent = 'Uploading...';
-    resultDiv.classList.remove('hidden');
-
-    const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
-    formData.append('title', title);
-    formData.append('doc_type', docType);
-    formData.append('jurisdiction', jurisdiction);
-
-    fetch('/api/admin/training-docs/upload', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) {
-            resultDiv.textContent = 'Error: ' + data.error;
-        } else {
-            resultDiv.textContent = 'Document uploaded successfully!';
-            document.getElementById('trainingDocTitle').value = '';
-            fileInput.value = '';
-            loadAdminTrainingDocs();
-        }
-    })
-    .catch(err => {
-        resultDiv.textContent = 'Error: ' + err.message;
-    });
-}
-
-function deleteTrainingDoc(id) {
-    if (!confirm('Delete this training document?')) return;
-
-    fetch('/api/admin/training-docs/' + id, {method: 'DELETE'})
-    .then(() => loadAdminTrainingDocs())
-    .catch(err => console.error('Delete error:', err));
-}
-
-
-// ========================
-// TAX PRECEDENT ENGINE (Admin Only)
-// ========================
-
-function addTaxPrecedent() {
-    const caseNumber = document.getElementById('precedentCaseNumber').value.trim();
-    const title = document.getElementById('precedentTitle').value.trim();
-    const caseType = document.getElementById('precedentCaseType').value;
-    const jurisdiction = document.getElementById('precedentJurisdiction').value;
-    const court = document.getElementById('precedentCourt').value.trim();
-    const taxpayer = document.getElementById('precedentTaxpayer').value.trim();
-    const issue = document.getElementById('precedentIssue').value.trim();
-    const decision = document.getElementById('precedentDecision').value.trim();
-    const holdings = document.getElementById('precedentHoldings').value.trim();
-    const law = document.getElementById('precedentLaw').value.trim();
-    const resultDiv = document.getElementById('precedentAddResult');
-
-    if (!caseNumber || !title || !issue || !decision) {
-        resultDiv.textContent = 'Please fill in required fields (Case Number, Title, Issue, Decision)';
-        resultDiv.classList.remove('hidden');
-        return;
-    }
-
-    resultDiv.textContent = 'Adding...';
-    resultDiv.classList.remove('hidden');
-
-    fetch('/api/precedents', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            case_number: caseNumber,
-            title: title,
-            case_type: caseType,
-            jurisdiction: jurisdiction,
-            court_name: court,
-            taxpayer_name: taxpayer,
-            tax_issue: issue,
-            decision_summary: decision,
-            key_holdings: holdings,
-            statutory_references: law
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) {
-            resultDiv.textContent = 'Error: ' + data.error;
-        } else {
-            resultDiv.textContent = 'Precedent added successfully!';
-            // Clear form
-            document.getElementById('precedentCaseNumber').value = '';
-            document.getElementById('precedentTitle').value = '';
-            document.getElementById('precedentCourt').value = '';
-            document.getElementById('precedentTaxpayer').value = '';
-            document.getElementById('precedentIssue').value = '';
-            document.getElementById('precedentDecision').value = '';
-            document.getElementById('precedentHoldings').value = '';
-            document.getElementById('precedentLaw').value = '';
-            loadAdminPrecedents();
-        }
-    })
-    .catch(err => {
-        resultDiv.textContent = 'Error: ' + err.message;
-    });
-}
-
-function loadAdminPrecedents() {
-    const list = document.getElementById('adminPrecedentsList');
-    fetch('/api/precedents')
-    .then(r => r.json())
-    .then(precedents => {
-        if (precedents.length === 0) {
-            list.innerHTML = '<p style="color:#64748b; text-align:center;">No precedents in database</p>';
-            return;
-        }
-
-        list.innerHTML = '';
-        precedents.forEach(p => {
-            const div = document.createElement('div');
-            div.style.cssText = 'padding:12px; border-bottom:1px solid #1e293b;';
-            div.innerHTML = '<div style="display:flex; justify-content:space-between;"><div style="color:white; font-weight:bold;">' + escapeHtml(p.case_number) + '</div><span style="color:#dfff00; font-size:12px;">' + p.case_type + '</span></div>' +
-                '<div style="color:#94a3b8; font-size:14px; margin-top:4px;">' + escapeHtml(p.title) + '</div>' +
-                '<div style="color:#64748b; font-size:12px; margin-top:4px;">' + p.jurisdiction + ' | ' + (p.date_decided || 'No date') + '</div>';
-            list.appendChild(div);
-        });
-    })
-    .catch(err => {
-        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error loading precedents</p>';
-    });
-}
-
-function searchPrecedents() {
-    const query = document.getElementById('precedentSearch').value.trim();
-    if (!query) {
-        loadAdminPrecedents();
-        return;
-    }
-
-    const list = document.getElementById('adminPrecedentsList');
-    list.innerHTML = '<p style="color:#64748b; text-align:center;">Searching...</p>';
-
-    fetch('/api/precedents/search', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({query: query})
-    })
-    .then(r => r.json())
-    .then(precedents => {
-        if (precedents.length === 0) {
-            list.innerHTML = '<p style="color:#64748b; text-align:center;">No precedents found</p>';
-            return;
-        }
-
-        list.innerHTML = '';
-        precedents.forEach(p => {
-            const div = document.createElement('div');
-            div.style.cssText = 'padding:12px; border-bottom:1px solid #1e293b;';
-            div.innerHTML = '<div style="color:white; font-weight:bold;">' + escapeHtml(p.case_number) + '</div>' +
-                '<div style="color:#94a3b8; font-size:14px;">' + escapeHtml(p.title) + '</div>';
-            list.appendChild(div);
-        });
-    })
-    .catch(err => {
-        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error searching</p>';
-    });
-}
-
-// ========================
-// LEARNING REPOSITORY (Admin Only)
-// ========================
-
-function loadAdminLearningRepo() {
-    const list = document.getElementById('adminLearningRepo');
-    // For now, show a placeholder - this would connect to /api/admin/learning-stats
-    list.innerHTML = '<div style="text-align:center; padding:20px;">' +
-        '<div style="color:#64748b; margin-bottom:12px;">Learning Repository stores AI interactions for continuous improvement</div>' +
-        '<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">' +
-        '<div style="background:#0f172a; padding:12px; border-radius:8px;"><div style="color:#dfff00; font-size:24px; font-weight:bold;">-</div><div style="color:#94a3b8; font-size:12px;">Total Interactions</div></div>' +
-        '<div style="background:#0f172a; padding:12px; border-radius:8px;"><div style="color:#dfff00; font-size:24px; font-weight:bold;">-</div><div style="color:#94a3b8; font-size:12px;">Expert Corrections</div></div>' +
-        '<div style="background:#0f172a; padding:12px; border-radius:8px;"><div style="color:#dfff00; font-size:24px; font-weight:bold;">-</div><div style="color:#94a3b8; font-size:12px;">Verified Answers</div></div>' +
-        '</div></div>';
-}
-
-// ========================
-// JURISDICTION MANAGEMENT (Admin Only)
-// ========================
-
-function addJurisdiction() {
-    const code = document.getElementById('jurisdictionCode').value.trim().toUpperCase();
-    const name = document.getElementById('jurisdictionName').value.trim();
-    const currency = document.getElementById('jurisdictionCurrency').value.trim().toUpperCase();
-    const authority = document.getElementById('jurisdictionAuthority').value.trim();
-
-    if (!code || !name || !currency || !authority) {
-        alert('Please fill in all fields');
-        return;
-    }
-
-    fetch('/api/jurisdictions', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            code: code,
-            name: name,
-            currency: currency,
-            tax_authority: authority
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) {
-            alert('Error: ' + data.error);
-        } else {
-            alert('Jurisdiction added!');
-            document.getElementById('jurisdictionCode').value = '';
-            document.getElementById('jurisdictionName').value = '';
-            document.getElementById('jurisdictionCurrency').value = '';
-            document.getElementById('jurisdictionAuthority').value = '';
-            loadAdminJurisdictions();
-        }
-    })
-    .catch(err => alert('Error: ' + err.message));
-}
-
-function loadAdminJurisdictions() {
-    const list = document.getElementById('adminJurisdictionsList');
-    fetch('/api/jurisdictions')
-    .then(r => r.json())
-    .then(jurisdictions => {
-        if (jurisdictions.length === 0) {
-            list.innerHTML = '<p style="color:#64748b; text-align:center;">No jurisdictions configured</p>';
-            return;
-        }
-
-        list.innerHTML = '';
-        jurisdictions.forEach(j => {
-            const div = document.createElement('div');
-            div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #1e293b;';
-            div.innerHTML = '<div><span style="color:#dfff00; font-weight:bold;">' + j.code + '</span> <span style="color:white;">' + j.name + '</span> <span style="color:#64748b;">(' + j.currency + ' | ' + j.tax_authority + ')</span></div>' +
-                '<span style="color:#22c55e; font-size:12px;">' + (j.active ? 'Active' : 'Inactive') + '</span>';
-            list.appendChild(div);
-        });
-    })
-    .catch(err => {
-        list.innerHTML = '<p style="color:#f87171; text-align:center;">Error loading jurisdictions</p>';
-    });
-}
-
-// Update loadAdminDashboard to include new sections
-function loadAdminDashboard() {
-    // Load visitor stats
-    fetch('/api/admin/visitors')
-    .then(r => r.json())
-    .then(data => {
-        document.getElementById('adminTotalVisitors').textContent = data.total_visitors || 0;
-        document.getElementById('adminTotalVisits').textContent = data.total_visits || 0;
-        document.getElementById('adminTodayVisitors').textContent = data.today_visitors || 0;
-        document.getElementById('adminTodayUnique').textContent = data.today_unique || 0;
-
-        // Country stats
-        const countryDiv = document.getElementById('adminCountryStats');
-        if (data.country_stats && data.country_stats.length > 0) {
-            countryDiv.innerHTML = '';
-            data.country_stats.forEach(stat => {
-                const div = document.createElement('div');
-                div.style.cssText = 'background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:12px; text-align:center;';
-                div.innerHTML = '<div style="color:#dfff00; font-size:24px; font-weight:bold;">' + stat.count + '</div><div style="color:#94a3b8; font-size:12px;">' + stat.country + '</div>';
-                countryDiv.appendChild(div);
-            });
-        } else {
-            countryDiv.innerHTML = '<p style="color:#64748b; text-align:center;">No country data</p>';
-        }
-
-        // Recent visitors
-        const recentDiv = document.getElementById('adminRecentVisitors');
-        if (data.recent_visitors && data.recent_visitors.length > 0) {
-            recentDiv.innerHTML = '';
-            data.recent_visitors.forEach(v => {
-                const div = document.createElement('div');
-                div.style.cssText = 'display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #1e293b; font-size:13px;';
-                div.innerHTML = '<span style="color:#94a3b8;">' + v.time + '</span> <span style="color:white;">' + v.ip + '</span> <span style="color:#64748b;">' + (v.is_logged_in ? '👤 Logged In' : '👤 Guest') + '</span> <span style="color:#dfff00;">' + (v.country || 'Unknown') + '</span>';
-                recentDiv.appendChild(div);
-            });
-        } else {
-            recentDiv.innerHTML = '<p style="color:#64748b; text-align:center;">No recent visitors</p>';
-        }
-    })
-    .catch(err => console.error('Visitor stats error:', err));
-
-    // Load user stats
-    fetch('/api/admin/stats')
-    .then(r => r.json())
-    .then(data => {
-        if (data.users) {
-            document.getElementById('adminTotalUsers').textContent = data.users.total || 0;
-            document.getElementById('adminTotalSessions').textContent = data.activity.sessions || 0;
-        }
-    })
-    .catch(err => console.error('Admin stats error:', err));
-
-    // Load detailed users
-    loadAdminUsersDetailed();
-
-    // Load training documents
-    loadAdminTrainingDocs();
-
-    // Load tax precedents
-    loadAdminPrecedents();
-
-    // Load learning repository
-    loadAdminLearningRepo();
-
-    // Load jurisdictions
-    loadAdminJurisdictions();
-
-    // Load feedback stats
-    loadAdminFeedbackStats();
-
-    // Load audit logs
-    loadAdminAuditLogs();
-}
-
-
-// ========================
-// CHAT DOCUMENT UPLOAD
-// ========================
-async function handleChatFileUpload(input) {
-    const file = input.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const askBtn = document.getElementById('askBtn');
-    const originalText = askBtn.textContent;
-    askBtn.textContent = 'Uploading...';
-    askBtn.disabled = true;
-
-    try {
-        const response = await fetch('/api/documents/upload', {
-            method: 'POST',
-            credentials: 'include',
-            body: formData
-        });
-
-        const data = await response.json();
-        askBtn.textContent = originalText;
-        askBtn.disabled = false;
-
-        if (data.error) {
-            alert('Upload error: ' + data.error);
-            return;
-        }
-
-        // Add document reference to chat input
-        const userInput = document.getElementById('userInput');
-        const docRef = '[Document: ' + data.document.filename + '] ';
-        userInput.value = docRef + userInput.value;
-        userInput.focus();
-
-        // Show document in chat area
-        const chatArea = document.getElementById('chatPage');
-        const welcomeMsg = document.getElementById('welcomeMsg');
-        if (welcomeMsg) welcomeMsg.style.display = 'none';
-
-        const docMessage = document.createElement('div');
-        docMessage.className = 'message system-message';
-        docMessage.innerHTML = '<div style="color:#64748b;font-size:12px;padding:8px;background:#07123a;border-radius:8px;margin:8px 0;border:1px solid #1e293b;">📎 Document uploaded: <strong style="color:#dfff00;">' + escapeHtml(data.document.filename) + '</strong></div>';
-        chatArea.appendChild(docMessage);
-        chatArea.scrollTop = chatArea.scrollHeight;
-
-        // Store document ID for AI analysis
-        window.currentChatDocId = data.document.id;
-        window.currentChatDocContent = data.content_preview;
-
-    } catch (err) {
-        askBtn.textContent = originalText;
-        askBtn.disabled = false;
-        console.error('Upload error:', err);
-        alert('Failed to upload document');
-    }
-
-    input.value = '';
-}
-
-
-// ========================
-// ADMIN USER ROLE MANAGEMENT
-// ========================
-async function updateUserRole(userId, newRole) {
-    if (!confirm('Are you sure you want to change this user\'s role to ' + newRole + '?')) return;
-
-    try {
-        const response = await fetch('/api/admin/users/' + userId + '/role', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ role: newRole })
-        });
-
-        const data = await response.json();
-        if (response.ok) {
-            alert('User role updated successfully!');
-            loadUsers();
-        } else {
-            alert('Error: ' + (data.error || 'Failed to update role'));
-        }
-    } catch (err) {
-        console.error('Update role error:', err);
-        alert('Failed to update user role');
-    }
-}
-
 </script>
-
 </body>
 </html>
