@@ -18,7 +18,7 @@ load_dotenv()
 # Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "taxgpt-secret-key-change-in-production")
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///taxgpt.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///taxgpt.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Session configuration for cross-domain persistence
@@ -1102,14 +1102,25 @@ def delete_training_doc(doc_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/make-admin/<email>")
-def make_admin(email):
+@app.route("/api/create-admin/<email>")
+def create_admin(email):
     user = User.query.filter_by(email=email.lower()).first()
     if not user:
-        return jsonify({"error": "User not found"}), 404
-    user.role = 'admin'
-    db.session.commit()
-    return jsonify({"message": f"{email} is now admin"})
+        hashed_password = generate_password_hash("temp123")
+        user = User(
+            email=email.lower(),
+            password=hashed_password,
+            country="Tanzania",
+            role="admin",
+            is_guest=False
+        )
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({"message": f"Created {email} as admin", "password": "temp123"})
+    else:
+        user.role = "admin"
+        db.session.commit()
+        return jsonify({"message": f"{email} is now admin"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
