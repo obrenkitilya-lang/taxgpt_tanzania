@@ -374,17 +374,17 @@ def change_password():
 
 @app.route('/')
 def home():
-    return send_file('frontend/index_fixed.html')
+    return send_file('frontend/index.html')
 
 @app.route('/admin')
 def admin_page():
-    return send_file('frontend/index_fixed.html')
+    return send_file('frontend/index.html')
 
 @app.route('/<tool>')
 def tool_page(tool):
     valid_tools = ['tax_research', 'documents', 'calculators', 'deadlines', 'business_setup']
     if tool in valid_tools:
-        return send_file('frontend/index_fixed.html')
+        return send_file('frontend/index.html')
     return "Tool not found", 404
 
 @app.route("/login", methods=["GET", "POST"])
