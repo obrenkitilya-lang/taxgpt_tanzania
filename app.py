@@ -1101,6 +1101,16 @@ def delete_training_doc(doc_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/api/make-admin/<email>")
+def make_admin(email):
+    user = User.query.filter_by(email=email.lower()).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    user.role = 'admin'
+    db.session.commit()
+    return jsonify({"message": f"{email} is now admin"})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=True)

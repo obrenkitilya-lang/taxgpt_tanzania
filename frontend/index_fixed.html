@@ -828,6 +828,7 @@ body{
 </style>
 <base >
 <base >
+<base >
 <base target="_blank">
 </head>
 
@@ -1310,7 +1311,7 @@ let userEmail = '';
 let modalMode = 'login';
 
 function checkAuth() {
-    fetch('/api/auth/me')
+    fetch('/api/auth/me', { credentials: 'include' })
     .then(r => r.json())
     .then(data => {
         if (data.logged_in) {
