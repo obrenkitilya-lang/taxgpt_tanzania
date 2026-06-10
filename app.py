@@ -356,7 +356,7 @@ def home():
 def admin_page():
     return send_file('frontend/index_fixed.html')
 
-@app.route('/<<tool>')
+@app.route('/<tool>')
 def tool_page(tool):
     valid_tools = ['tax_research', 'documents', 'calculators', 'deadlines', 'business_setup']
     if tool in valid_tools:
@@ -371,8 +371,8 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
             login_user(user, remember=True)
-            return """<<script>window.location.href='/';</script>"""
-        return """<<script>alert('Invalid credentials');window.location.href='/login';</script>"""
+            return """<script>window.location.href='/';</script>"""
+        return """<script>alert('Invalid credentials');window.location.href='/login';</script>"""
     return """
 <!DOCTYPE html><html><head><title>TaxGPT Login</title>
 <style>body{background:#020817;display:flex;justify-content:center;align-items:center;height:100vh;font-family:Arial;color:white;margin:0}.card{background:#07123a;padding:40px;border-radius:20px;width:400px}input{width:100%;padding:15px;margin-top:15px;background:#020817;border:1px solid #334155;color:white;border-radius:10px;box-sizing:border-box}button{width:100%;padding:15px;margin-top:20px;background:#d9ff00;border:none;border-radius:10px;font-weight:bold;cursor:pointer;font-size:16px}</style>
@@ -391,13 +391,13 @@ def signup_page():
         password = request.form.get("password", "")
         country = request.form.get("country", "Tanzania").strip()
         if not email or not password:
-            return """<<script>alert('All fields required');window.location.href='/signup';</script>"""
+            return """<script>alert('All fields required');window.location.href='/signup';</script>"""
         if len(password) < 6:
-            return """<<script>alert('Password must be at least 6 characters');window.location.href='/signup';</script>"""
+            return """<script>alert('Password must be at least 6 characters');window.location.href='/signup';</script>"""
         if User.query.filter_by(email=email).first():
-            return """<<script>alert('Email already registered');window.location.href='/signup';</script>"""
+            return """<script>alert('Email already registered');window.location.href='/signup';</script>"""
         if country not in ['Tanzania', 'Kenya', 'Uganda']:
-            return """<<script>alert('Country must be Tanzania, Kenya, or Uganda');window.location.href='/signup';</script>"""
+            return """<script>alert('Country must be Tanzania, Kenya, or Uganda');window.location.href='/signup';</script>"""
         hashed_password = generate_password_hash(password)
         is_first_user = User.query.count() == 0
         role = 'admin' if is_first_user else 'user'
@@ -405,7 +405,7 @@ def signup_page():
         db.session.add(user)
         db.session.commit()
         login_user(user, remember=True)
-        return """<<script>window.location.href='/';</script>"""
+        return """<script>window.location.href='/';</script>"""
     return """
 <!DOCTYPE html><html><head><title>TaxGPT Sign Up</title>
 <style>body{background:#020817;display:flex;justify-content:center;align-items:center;height:100vh;font-family:Arial;color:white;margin:0}.card{background:#07123a;padding:40px;border-radius:20px;width:400px}input,select{width:100%;padding:15px;margin-top:15px;background:#020817;border:1px solid #334155;color:white;border-radius:10px;box-sizing:border-box}button{width:100%;padding:15px;margin-top:20px;background:#d9ff00;border:none;border-radius:10px;font-weight:bold;cursor:pointer;font-size:16px}</style>
