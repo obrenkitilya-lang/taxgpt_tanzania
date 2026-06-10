@@ -928,6 +928,20 @@ def jurisdictions():
 def test():
     return jsonify({"status": "ok", "db": "connected"})
 
+# TEMPORARY DEBUG: Check actual DB value
+@app.route("/api/debug-user/<email>")
+def debug_user(email):
+    user = User.query.filter_by(email=email.lower()).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify({
+        "id": user.id,
+        "email": user.email,
+        "role": user.role,
+        "country": user.country,
+        "is_guest": user.is_guest
+    })
+
 # TEMPORARY: Fix database column size
 @app.route("/api/fix-db")
 def fix_db():
