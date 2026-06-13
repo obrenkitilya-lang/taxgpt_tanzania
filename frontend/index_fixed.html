@@ -475,9 +475,14 @@ let userRole = '';
 let modalMode = 'login';
 
 function checkAuth() {
+  console.log('Checking auth...');
   fetch('/api/auth/me', { credentials: 'include' })
-  .then(r => r.json())
+  .then(r => {
+    console.log('Auth response status:', r.status);
+    return r.json();
+  })
   .then(data => {
+    console.log('Auth data:', data);
     if (data.logged_in) {
       isLoggedIn = true;
       userRole = data.role;
@@ -501,7 +506,9 @@ function checkAuth() {
       document.getElementById('userAuth').style.display = 'none';
       if (currentTool === 'admin') window.location.href = '/login';
     }
-  }).catch(() => {});
+  }).catch(err => {
+    console.error('Auth check error:', err);
+  });
 }
 
 window.addEventListener('DOMContentLoaded', () => {
