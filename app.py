@@ -231,13 +231,13 @@ def check_guest_limit(activity_type, limit):
         return True, None
 
 # ========================
-# RAG - RETRIEVAL AUGMENTED GENERATION
+# RAG - RETRIEVAL AUGMENTED GENERATION (IMPROVED)
 # ========================
 
 def search_training_docs(query, jurisdiction="Tanzania", max_results=3):
     """
     Search training documents for relevant content based on the query.
-    Uses simple keyword matching. Can be upgraded to embeddings later.
+    Uses simple keyword matching with improved scoring.
     """
     try:
         # Get all training documents for the jurisdiction
@@ -249,19 +249,59 @@ def search_training_docs(query, jurisdiction="Tanzania", max_results=3):
             return ""
         
         # Simple keyword scoring
-        query_words = set(re.findall(r'\w+', query.lower()))
+        query_lower = query.lower()
+        query_words = set(re.findall(r'\w+', query_lower))
+        
+        # Add common tax-related keywords to improve matching
+        tax_keywords = {
+            'tax': ['tax', 'taxation', 'revenue', 'tra'],
+            'vat': ['vat', 'value added tax', 'vat act', 'vat registration'],
+            'income': ['income', 'income tax', 'paye', 'taxable income'],
+            'appeal': ['appeal', 'appeals', 'tribunal', 'dispute', 'objection'],
+            'business': ['business', 'company', 'corporation', 'enterprise', 'tin'],
+            'certificate': ['certificate', 'clearance', 'tcc', 'compliance'],
+            'withholding': ['withholding', 'wht', 'deduction', 'deducted'],
+            'customs': ['customs', 'import', 'export', 'duty', 'tariff'],
+            'stamp': ['stamp', 'stamp duty', 'transfer', 'conveyance'],
+            'tourism': ['tourism', 'tourist', 'hotel', 'travel'],
+            'training': ['training', 'vocational', 'education', 'skill'],
+            'amendment': ['amendment', 'amended', 'change', 'update', 'revision'],
+            'reserve': ['reserve', 'certificate', 'tax reserve'],
+        }
+        
+        # Expand query words with related tax terms
+        expanded_words = set(query_words)
+        for key, related in tax_keywords.items():
+            if any(word in query_lower for word in related):
+                expanded_words.update(related)
+        
         scored_docs = []
         
         for doc in docs:
-            if not doc.content_text:
+            if not doc.content_text or len(doc.content_text) < 50:
                 continue
             
-            # Score based on keyword matches in title and content
-            title_words = set(re.findall(r'\w+', doc.title.lower()))
-            content_sample = doc.content_text[:5000].lower()
+            doc_title_lower = doc.title.lower()
+            doc_content_lower = doc.content_text[:8000].lower()  # Search first 8000 chars
             
-            title_score = len(query_words & title_words) * 3  # Title matches weighted higher
-            content_score = sum(1 for word in query_words if word in content_sample)
+            # Score based on keyword matches
+            title_score = 0
+            content_score = 0
+            
+            for word in expanded_words:
+                if len(word) > 2:  # Only meaningful words
+                    title_score += doc_title_lower.count(word) * 5
+                    content_score += doc_content_lower.count(word) * 1
+            
+            # Bonus for exact phrase matches in title
+            if query_lower in doc_title_lower:
+                title_score += 50
+            
+            # Bonus for document type relevance
+            doc_type_lower = doc.doc_type.lower()
+            if any(word in doc_type_lower for word in expanded_words):
+                title_score += 20
+            
             total_score = title_score + content_score
             
             if total_score > 0:
@@ -272,14 +312,19 @@ def search_training_docs(query, jurisdiction="Tanzania", max_results=3):
         top_docs = scored_docs[:max_results]
         
         if not top_docs:
-            return ""
+            # Fallback: return first 2 documents if no match found
+            fallback_docs = [d for d in docs if d.content_text and len(d.content_text) > 50][:2]
+            if fallback_docs:
+                top_docs = [(1, d) for d in fallback_docs]
+            else:
+                return ""
         
         # Build context from top documents
         context_parts = []
         for score, doc in top_docs:
-            # Take first 2000 chars of each relevant doc
-            content_preview = doc.content_text[:2000]
-            context_parts.append(f"--- {doc.title} ({doc.doc_type}) ---\n{content_preview}\n")
+            # Take first 3000 chars of each relevant doc
+            content_preview = doc.content_text[:3000]
+            context_parts.append(f"--- DOCUMENT: {doc.title} ({doc.doc_type}) ---\n{content_preview}\n")
         
         return "\n".join(context_parts)
     
@@ -301,16 +346,18 @@ def build_rag_prompt(question, tool="tax_research", jurisdiction="Tanzania"):
         # If we found relevant documents, inject them into the prompt
         rag_prompt = f"""{base_prompt}
 
-IMPORTANT: Use the following official tax documents as reference when answering. If the user's question relates to these documents, cite them specifically.
+IMPORTANT INSTRUCTIONS:
+You have access to the following official Tanzanian tax documents. Use them as PRIMARY reference when answering. If the documents contain relevant information, cite the specific document name and section.
 
-REFERENCE DOCUMENTS:
+OFFICIAL REFERENCE DOCUMENTS:
 {context}
 
-When answering:
+ANSWER GUIDELINES:
 1. If the reference documents contain relevant information, use it and cite the document name
-2. If the documents don't cover the specific question, use your general knowledge but mention that specific details may need verification
-3. Always provide accurate, up-to-date Tanzanian tax information
-4. Cite specific sections or document names when possible
+2. Be specific about sections, articles, or provisions from the documents
+3. If the documents don't fully cover the question, use your general knowledge but note that specific details may need verification
+4. Always provide accurate, up-to-date Tanzanian tax information
+5. Cite specific document names when possible
 
 User question: {question}"""
         return rag_prompt
@@ -1230,28 +1277,49 @@ def create_admin(email):
         return jsonify({"error": str(e)}), 500
 
 # ========================
-# RAG TEST/DEBUG ROUTE
+# RAG TEST/DEBUG ROUTE (GET and POST)
 # ========================
 
-@app.route("/api/admin/rag-test", methods=["POST"])
+@app.route("/api/admin/rag-test", methods=["GET", "POST"])
 @admin_required
 def test_rag():
     """
     Test the RAG system with a query. Returns what documents would be used.
     """
     try:
-        data = request.get_json()
-        query = data.get("query", "What is VAT in Tanzania?")
-        jurisdiction = data.get("jurisdiction", "Tanzania")
+        if request.method == "POST":
+            data = request.get_json() or {}
+            query = data.get("query", "What is VAT in Tanzania?")
+            jurisdiction = data.get("jurisdiction", "Tanzania")
+        else:
+            query = request.args.get("query", "What is VAT in Tanzania?")
+            jurisdiction = request.args.get("jurisdiction", "Tanzania")
         
         context = search_training_docs(query, jurisdiction)
+        
+        # Get all docs for reference
+        all_docs = TrainingDocument.query.filter(
+            TrainingDocument.jurisdiction == jurisdiction
+        ).all()
+        
+        doc_list = []
+        for doc in all_docs:
+            doc_list.append({
+                "id": doc.id,
+                "title": doc.title,
+                "type": doc.doc_type,
+                "content_length": len(doc.content_text) if doc.content_text else 0,
+                "has_content": bool(doc.content_text and len(doc.content_text) > 50)
+            })
         
         return jsonify({
             "query": query,
             "jurisdiction": jurisdiction,
             "context_found": bool(context),
             "context_length": len(context),
-            "context_preview": context[:1000] if context else "No relevant documents found"
+            "context_preview": context[:2000] if context else "No relevant documents found",
+            "total_documents": len(all_docs),
+            "documents": doc_list
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
