@@ -61,12 +61,13 @@ body{background:#020817;color:white;height:100vh;display:flex}
 .ai-message pre{background:#1e293b;padding:12px;border-radius:8px;overflow-x:auto;margin:10px 0}
 .ai-message pre code{background:none;padding:0}
 .bottom-section{padding:20px 40px 30px;flex-shrink:0}
-.search-box{width:100%;max-width:700px;height:68px;display:flex;background:#0f172a;border:1px solid #1e293b;border-radius:18px;overflow:hidden;margin:0 auto}
-.search-box input{flex:1;border:none;outline:none;background:none;color:white;font-size:18px;padding:0 24px}
-.search-box input::placeholder{color:#64748b}
-.search-box button{width:140px;border:none;background:#dfff00;color:black;font-size:22px;font-weight:bold;cursor:pointer}
+.search-box{width:100%;max-width:700px;min-height:52px;display:flex;background:#0f172a;border:1px solid #1e293b;border-radius:18px;overflow:visible;margin:0 auto;align-items:flex-end;padding:8px 8px 8px 4px}
+#userInput{flex:1;border:none;outline:none;background:none;color:white;font-size:16px;padding:12px 8px;resize:none;overflow:hidden;min-height:24px;max-height:200px;font-family:Arial,sans-serif;line-height:1.5;field-sizing:content;box-sizing:border-box}#userInput::-webkit-scrollbar{display:none}
+.search-box textarea::placeholder{color:#64748b}
+.search-box button{width:36px;height:36px;border:none;background:#dfff00;color:black;font-size:18px;font-weight:bold;cursor:pointer;flex-shrink:0;padding:0;margin:0 4px 4px 0;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:transform 0.2s}.search-box button:hover{background:#c8e600;transform:scale(1.05)}.search-box button:disabled{background:#6b7c00;cursor:not-allowed;transform:none}
 .search-box button:hover{background:#c8e600}
 .search-box button:disabled{background:#6b7c00;cursor:not-allowed}
+.search-box .attach-btn{background:transparent;border:none;color:#dfff00;font-size:20px;cursor:pointer;padding:0 6px;flex-shrink:0;margin:0 0 4px 0;display:flex;align-items:center;justify-content:center;height:36px;width:36px;border-radius:8px}.search-box .attach-btn:hover{background:#1e293b}
 .tool-page{flex:1;overflow-y:auto;padding:20px 40px}
 .calculator-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;max-width:900px;margin:0 auto}
 .calc-card{background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px}
@@ -106,6 +107,7 @@ body{background:#020817;color:white;height:100vh;display:flex}
 .chat-area::-webkit-scrollbar-thumb,.chat-history::-webkit-scrollbar-thumb,.tool-page::-webkit-scrollbar-thumb{background:#1e293b;border-radius:3px}
 .hidden{display:none !important}
 </style>
+<base target="_blank">
 </head>
 <body>
 
@@ -379,9 +381,9 @@ body{background:#020817;color:white;height:100vh;display:flex}
   <div class="bottom-section" id="chatInput">
     <form class="search-box" id="chatForm" onsubmit="return false;">
       <input type="file" id="chatFileInput" style="display:none" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" onchange="handleChatFileUpload(this)">
-      <button type="button" onclick="document.getElementById('chatFileInput').click()" style="background:transparent;border:none;color:#dfff00;font-size:20px;cursor:pointer;padding:0 10px;" title="Attach document">📎</button>
-      <input type="text" id="userInput" placeholder="Ask your tax question..." autocomplete="off">
-      <button type="submit" id="askBtn">Ask</button>
+      <button type="button" class="attach-btn" onclick="document.getElementById('chatFileInput').click()" title="Attach document">📎</button>
+      <textarea id="userInput" placeholder="Ask your tax question..." rows="1" style="flex:1;border:none;outline:none;background:none;color:white;font-size:16px;padding:12px 8px;resize:none;overflow:hidden;min-height:24px;max-height:200px;font-family:Arial,sans-serif;line-height:1.5;box-sizing:border-box;"></textarea>
+      <button type="submit" id="askBtn">↑</button>
     </form>
   </div>
 
@@ -443,6 +445,27 @@ else if (currentTool === 'deadlines') showPage('deadlinesPage');
 else if (currentTool === 'business_setup') showPage('businessSetupPage');
 else if (currentTool === 'admin') { showPage('adminPage'); }
 else showPage('chatPage');
+
+// ========================
+// AUTO-EXPAND TEXTAREA (using field-sizing: content)
+// ========================
+const userInput = document.getElementById('userInput');
+userInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage(e);
+  }
+});
+// Focus on load
+setTimeout(() => userInput.focus(), 100);
+
+// Handle Enter key (send) and Shift+Enter (new line)
+userInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage(e);
+  }
+});
 
 // ========================
 // AUTH
@@ -617,13 +640,11 @@ function newChat() {
 }
 
 document.getElementById('chatForm').addEventListener('submit', sendMessage);
-document.getElementById('userInput').addEventListener('keypress', function(e) {
-  if (e.key === 'Enter') sendMessage(e);
-});
 
 function sendMessage(e) {
   e.preventDefault();
-  const question = document.getElementById('userInput').value.trim();
+  const userInput = document.getElementById('userInput');
+  const question = userInput.value.trim();
   if (!question || isStreaming) return;
 
   const chatArea = document.getElementById('chatPage');
@@ -638,6 +659,7 @@ function sendMessage(e) {
   chatArea.scrollTop = chatArea.scrollHeight;
 
   document.getElementById('userInput').value = '';
+  document.getElementById('userInput').style.height = 'auto';
   askBtn.disabled = true;
   isStreaming = true;
 
@@ -814,7 +836,7 @@ function loadDocuments() {
       const div = document.createElement('div');
       div.style.cssText = 'background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:center;';
       div.innerHTML = '<div style="display:flex;align-items:center;gap:12px;"><span style="font-size:24px;">📄</span><div><div style="color:white;font-weight:bold;">' + escapeHtml(doc.filename) + '</div><div style="color:#64748b;font-size:12px;">' + doc.uploaded_at + '</div></div></div>' +
-        '<div style="display:flex;gap:8px;"><button onclick="selectDocument(' + doc.id + ',\'' + escapeHtml(doc.filename) + '\',event)" style="background:#dfff00;border:none;padding:8px 16px;border-radius:8px;color:black;font-weight:bold;cursor:pointer;">Analyze</button>' +
+        '<div style="display:flex;gap:8px;"><button onclick="selectDocument(' + doc.id + ','' + escapeHtml(doc.filename) + '',event)" style="background:#dfff00;border:none;padding:8px 16px;border-radius:8px;color:black;font-weight:bold;cursor:pointer;">Analyze</button>' +
         '<button onclick="deleteDocument(' + doc.id + ',event)" style="background:#451a1a;border:none;padding:8px 16px;border-radius:8px;color:#f87171;font-weight:bold;cursor:pointer;">Delete</button></div>';
       list.appendChild(div);
     });
@@ -997,54 +1019,37 @@ function uploadTrainingDocument() {
     resultDiv.style.color = '#22c55e';
     resultDiv.textContent = '✅ Document uploaded! AI will now use it to answer questions.';
     document.getElementById('trainingDocTitle').value = '';
-    fileInput.value = '';
-    setTimeout(() => { resultDiv.classList.add('hidden'); resultDiv.style.color = '#94a3b8'; }, 4000);
+    document.getElementById('trainingDocFile').value = '';
     loadAdminTrainingDocs();
-  }).catch(err => { resultDiv.textContent = '❌ Error: ' + err.message; });
+  }).catch(() => { resultDiv.textContent = '❌ Upload failed.'; });
 }
 
-function deleteTrainingDoc(id) {
+function deleteTrainingDoc(docId) {
   if (!confirm('Delete this training document?')) return;
-  fetch('/api/admin/training-docs/' + id, { method: 'DELETE', credentials: 'include' })
-  .then(() => loadAdminTrainingDocs());
+  fetch('/api/admin/training-docs/' + docId, { method: 'DELETE', credentials: 'include' })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) alert('Error: ' + data.error);
+    else loadAdminTrainingDocs();
+  });
 }
 
 function loadAdminFeedbackStats() {
-  fetch('/api/feedback/stats', { credentials: 'include' })
-  .then(r => r.json())
-  .then(stats => {
-    document.getElementById('adminFeedbackStats').innerHTML =
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">' +
-      '<div style="text-align:center;"><div style="color:#22c55e;font-size:24px;font-weight:bold;">' + (stats.helpful||0) + '</div><div style="color:#94a3b8;font-size:12px;">Helpful</div></div>' +
-      '<div style="text-align:center;"><div style="color:#eab308;font-size:24px;font-weight:bold;">' + (stats.incomplete||0) + '</div><div style="color:#94a3b8;font-size:12px;">Partial</div></div>' +
-      '<div style="text-align:center;"><div style="color:#ef4444;font-size:24px;font-weight:bold;">' + (stats.incorrect||0) + '</div><div style="color:#94a3b8;font-size:12px;">Incorrect</div></div>' +
-      '</div>';
-  }).catch(() => {});
+  const el = document.getElementById('adminFeedbackStats');
+  el.innerHTML = '<p style="color:#64748b;text-align:center;">Feedback stats coming soon...</p>';
 }
 
 function loadAdminAuditLogs() {
-  const list = document.getElementById('adminAuditLogs');
-  fetch('/api/admin/audit-logs', { credentials: 'include' })
-  .then(r => r.json())
-  .then(logs => {
-    if (!logs || logs.length === 0) { list.innerHTML = '<p style="color:#64748b;text-align:center;">No logs yet</p>'; return; }
-    list.innerHTML = '';
-    logs.forEach(l => {
-      const div = document.createElement('div');
-      div.style.cssText = 'padding:8px;border-bottom:1px solid #1e293b;font-size:13px;';
-      div.innerHTML = '<span style="color:#94a3b8;">[' + l.created_at + ']</span> <span style="color:#dfff00;">' + l.action + '</span>' + (l.entity_type ? ' <span style="color:#64748b;">' + l.entity_type + '</span>' : '');
-      list.appendChild(div);
-    });
-  }).catch(() => { list.innerHTML = '<p style="color:#f87171;text-align:center;">Error</p>'; });
+  const el = document.getElementById('adminAuditLogs');
+  el.innerHTML = '<p style="color:#64748b;text-align:center;">Audit logs coming soon...</p>';
 }
 
-// ========================
-// UTILITIES
-// ========================
 function escapeHtml(text) {
-  if (!text) return '';
-  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 </script>
+
 </body>
 </html>
