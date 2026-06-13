@@ -11,6 +11,7 @@ import tempfile
 import PyPDF2
 import json
 from datetime import datetime, timedelta
+import re
 
 # Load environment variables
 load_dotenv()
@@ -228,6 +229,94 @@ def check_guest_limit(activity_type, limit):
     except Exception as e:
         print("Guest limit check error: " + str(e))
         return True, None
+
+# ========================
+# RAG - RETRIEVAL AUGMENTED GENERATION
+# ========================
+
+def search_training_docs(query, jurisdiction="Tanzania", max_results=3):
+    """
+    Search training documents for relevant content based on the query.
+    Uses simple keyword matching. Can be upgraded to embeddings later.
+    """
+    try:
+        # Get all training documents for the jurisdiction
+        docs = TrainingDocument.query.filter(
+            TrainingDocument.jurisdiction == jurisdiction
+        ).all()
+        
+        if not docs:
+            return ""
+        
+        # Simple keyword scoring
+        query_words = set(re.findall(r'\w+', query.lower()))
+        scored_docs = []
+        
+        for doc in docs:
+            if not doc.content_text:
+                continue
+            
+            # Score based on keyword matches in title and content
+            title_words = set(re.findall(r'\w+', doc.title.lower()))
+            content_sample = doc.content_text[:5000].lower()
+            
+            title_score = len(query_words & title_words) * 3  # Title matches weighted higher
+            content_score = sum(1 for word in query_words if word in content_sample)
+            total_score = title_score + content_score
+            
+            if total_score > 0:
+                scored_docs.append((total_score, doc))
+        
+        # Sort by score and take top results
+        scored_docs.sort(key=lambda x: x[0], reverse=True)
+        top_docs = scored_docs[:max_results]
+        
+        if not top_docs:
+            return ""
+        
+        # Build context from top documents
+        context_parts = []
+        for score, doc in top_docs:
+            # Take first 2000 chars of each relevant doc
+            content_preview = doc.content_text[:2000]
+            context_parts.append(f"--- {doc.title} ({doc.doc_type}) ---\n{content_preview}\n")
+        
+        return "\n".join(context_parts)
+    
+    except Exception as e:
+        print(f"RAG search error: {e}")
+        return ""
+
+def build_rag_prompt(question, tool="tax_research", jurisdiction="Tanzania"):
+    """
+    Build a prompt that includes relevant training document context.
+    """
+    # Search for relevant documents
+    context = search_training_docs(question, jurisdiction)
+    
+    # Base system prompt
+    base_prompt = TOOL_PROMPTS.get(tool, TOOL_PROMPTS["tax_research"])
+    
+    if context:
+        # If we found relevant documents, inject them into the prompt
+        rag_prompt = f"""{base_prompt}
+
+IMPORTANT: Use the following official tax documents as reference when answering. If the user's question relates to these documents, cite them specifically.
+
+REFERENCE DOCUMENTS:
+{context}
+
+When answering:
+1. If the reference documents contain relevant information, use it and cite the document name
+2. If the documents don't cover the specific question, use your general knowledge but mention that specific details may need verification
+3. Always provide accurate, up-to-date Tanzanian tax information
+4. Cite specific sections or document names when possible
+
+User question: {question}"""
+        return rag_prompt
+    else:
+        # No relevant documents found, use standard prompt
+        return f"{base_prompt}\n\nUser question: {question}"
 
 # ========================
 # AUDIT LOG HELPER
@@ -503,7 +592,7 @@ def delete_session(session_id):
         return jsonify({"error": str(e)}), 500
 
 # ========================
-# STREAMING CHAT API
+# STREAMING CHAT API WITH RAG
 # ========================
 
 @app.route("/ask", methods=["POST"])
@@ -521,7 +610,11 @@ def ask():
         if not question:
             return jsonify({"error": "No question provided"}), 400
 
-        system_prompt = TOOL_PROMPTS.get(tool, TOOL_PROMPTS["tax_research"])
+        # Get user's jurisdiction for RAG
+        jurisdiction = current_user.country if current_user.is_authenticated else "Tanzania"
+        
+        # Build RAG-enhanced prompt
+        system_prompt = build_rag_prompt(question, tool, jurisdiction)
 
         if session_id:
             chat_session = ChatSession.query.get(session_id)
@@ -1101,26 +1194,67 @@ def delete_training_doc(doc_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ========================
+# CREATE ADMIN ROUTE (No auth required - for setup)
+# ========================
 
 @app.route("/api/create-admin/<email>")
 def create_admin(email):
-    user = User.query.filter_by(email=email.lower()).first()
-    if not user:
-        hashed_password = generate_password_hash("temp123")
-        user = User(
-            email=email.lower(),
-            password=hashed_password,
-            country="Tanzania",
-            role="admin",
-            is_guest=False
-        )
-        db.session.add(user)
-        db.session.commit()
-        return jsonify({"message": f"Created {email} as admin", "password": "temp123"})
-    else:
-        user.role = "admin"
-        db.session.commit()
-        return jsonify({"message": f"{email} is now admin"})
+    try:
+        user = User.query.filter_by(email=email.lower()).first()
+        if not user:
+            hashed_password = generate_password_hash("temp123")
+            user = User(
+                email=email.lower(),
+                password=hashed_password,
+                country="Tanzania",
+                role="admin",
+                is_guest=False
+            )
+            db.session.add(user)
+            db.session.commit()
+            return jsonify({
+                "message": f"Created {email} as admin",
+                "password": "temp123",
+                "action": "created"
+            })
+        else:
+            user.role = "admin"
+            db.session.commit()
+            return jsonify({
+                "message": f"{email} is now admin",
+                "previous_role": getattr(user, '_previous_role', user.role),
+                "action": "promoted"
+            })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ========================
+# RAG TEST/DEBUG ROUTE
+# ========================
+
+@app.route("/api/admin/rag-test", methods=["POST"])
+@admin_required
+def test_rag():
+    """
+    Test the RAG system with a query. Returns what documents would be used.
+    """
+    try:
+        data = request.get_json()
+        query = data.get("query", "What is VAT in Tanzania?")
+        jurisdiction = data.get("jurisdiction", "Tanzania")
+        
+        context = search_training_docs(query, jurisdiction)
+        
+        return jsonify({
+            "query": query,
+            "jurisdiction": jurisdiction,
+            "context_found": bool(context),
+            "context_length": len(context),
+            "context_preview": context[:1000] if context else "No relevant documents found"
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
