@@ -283,11 +283,8 @@ def search_training_docs(query, jurisdiction="Tanzania", max_results=3):
         context_parts = []
         for score, doc in top_docs:
             content_preview = doc.content_text[:3000]
-            context_parts.append(f"--- DOCUMENT: {doc.title} ({doc.doc_type}) ---
-{content_preview}
-")
-        return "
-".join(context_parts)
+            context_parts.append(f"--- DOCUMENT: {doc.title} ({doc.doc_type}) ---\n{content_preview}\n")
+        return "\n".join(context_parts)
     except Exception as e:
         print(f"RAG search error: {e}")
         return ""
@@ -314,9 +311,7 @@ ANSWER GUIDELINES:
 User question: {question}"""
         return rag_prompt
     else:
-        return f"{base_prompt}
-
-User question: {question}"
+        return f"{base_prompt}\n\nUser question: {question}"
 
 def log_audit(action, entity_type=None, entity_id=None, details=None):
     try:
@@ -604,23 +599,17 @@ def ask():
         db.session.commit()
         def generate():
             full_response = ""
-            yield "data: " + json.dumps({'type': 'session', 'session_id': chat_session.id}) + "
-
-"
+            yield "data: " + json.dumps({'type': 'session', 'session_id': chat_session.id}) + "\n\n"
             stream = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": question}], stream=True)
             for chunk in stream:
                 if chunk.choices[0].delta.content:
                     text = chunk.choices[0].delta.content
                     full_response += text
-                    yield "data: " + json.dumps({'type': 'token', 'content': text}) + "
-
-"
+                    yield "data: " + json.dumps({'type': 'token', 'content': text}) + "\n\n"
             ai_msg = ChatMessage(session_id=chat_session.id, role='ai', content=full_response)
             db.session.add(ai_msg)
             db.session.commit()
-            yield "data: " + json.dumps({'type': 'done', 'remaining': msg if isinstance(msg, int) else None}) + "
-
-"
+            yield "data: " + json.dumps({'type': 'done', 'remaining': msg if isinstance(msg, int) else None}) + "\n\n"
         return Response(stream_with_context(generate()), mimetype='text/event-stream')
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -760,8 +749,7 @@ def upload_document():
             try:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
-                    content_text += page.extract_text() + "
-"
+                    content_text += page.extract_text() + "\n"
             except Exception as e:
                 content_text = f"Could not extract text: {str(e)}"
         elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
@@ -1152,8 +1140,7 @@ def upload_training_doc():
             try:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
-                    content_text += page.extract_text() + "
-"
+                    content_text += page.extract_text() + "\n"
             except Exception as e:
                 content_text = "Could not extract text: " + str(e)
         else:
