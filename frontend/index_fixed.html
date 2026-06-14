@@ -659,6 +659,7 @@ body{background:#020817;color:white;height:100vh;display:flex}
 // ========================
 const path = window.location.pathname;
 const currentTool = path === '/' ? 'tax_research' : path.replace('/', '');
+console.log('Current path:', path, 'Current tool:', currentTool);
 const toolNames = {
   'tax_research': 'Tax Research', 'tax_updates': 'Tax Updates',
   'documents': 'Documents', 'calculators': 'Calculators',
@@ -740,6 +741,7 @@ function checkAuth() {
 window.addEventListener('DOMContentLoaded', () => {
   checkAuth();
   if (currentTool === 'tax_research' || currentTool === 'documents') loadSessions();
+  if (currentTool === 'tax_updates') loadTaxUpdates();
 });
 
 function logout() {
@@ -994,18 +996,28 @@ function switchTaxTab(tab) {
 }
 
 function loadTaxUpdates() {
-  loadNews();
-  loadDeadlines();
+  console.log('Loading tax updates...');
+  try {
+    loadNews();
+    loadDeadlines();
+    loadComparison();
+  } catch (e) {
+    console.error('Error loading tax updates:', e);
+  }
 }
 
 // NEWS
 function loadNews() {
+  console.log('Fetching news...');
   fetch('/api/news?category=' + currentNewsFilter, { credentials: 'include' })
-  .then(r => r.json())
+  .then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
   .then(news => {
+    console.log('News loaded:', news.length, 'items');
     allNews = news;
     renderNews(news);
-    // Update badge
     const unreadCount = news.filter(n => !n.is_read).length;
     const badge = document.getElementById('newsBadge');
     if (unreadCount > 0) {
@@ -1014,7 +1026,8 @@ function loadNews() {
     }
   })
   .catch(err => {
-    document.getElementById('newsGrid').innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">Error loading news. Please try again.</div>';
+    console.error('Error loading news:', err);
+    document.getElementById('newsGrid').innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">Error loading news: ' + err.message + '. Please check your connection.</div>';
   });
 }
 

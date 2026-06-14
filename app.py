@@ -483,17 +483,17 @@ def api_logout():
 
 @app.route('/')
 def home():
-    return send_file('frontend/index_fixed.html')
+    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend', 'index_fixed.html'))
 
 @app.route('/admin')
 def admin_page():
-    return send_file('frontend/index_fixed.html')
+    return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend', 'index_fixed.html'))
 
 @app.route('/<tool>')
 def tool_page(tool):
     valid_tools = ['tax_updates', 'documents', 'calculators', 'deadlines', 'business_setup', 'tax_research']
     if tool in valid_tools:
-        return send_file('frontend/index_fixed.html')
+        return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend', 'index_fixed.html'))
     return "Tool not found", 404
 
 @app.route("/login", methods=["GET", "POST"])
