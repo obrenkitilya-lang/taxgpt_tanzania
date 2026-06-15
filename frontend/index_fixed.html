@@ -1381,7 +1381,7 @@ function loadDocuments() {
       const div = document.createElement('div');
       div.style.cssText = 'background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:center;';
       div.innerHTML = '<div style="display:flex;align-items:center;gap:12px;"><span style="font-size:24px;">📄</span><div><div style="color:white;font-weight:bold;">' + escapeHtml(doc.filename) + '</div><div style="color:#64748b;font-size:12px;">' + doc.uploaded_at + '</div></div></div>' +
-        '<div style="display:flex;gap:8px;"><button onclick="selectDocument(' + doc.id + ','' + escapeHtml(doc.filename) + '',event)" style="background:#dfff00;border:none;padding:8px 16px;border-radius:8px;color:black;font-weight:bold;cursor:pointer;">Analyze</button>' +
+        '<div style="display:flex;gap:8px;"><button onclick="selectDocument(' + doc.id + ', this.dataset.name, event)" data-name="' + escapeHtml(doc.filename) + '" style="background:#dfff00;border:none;padding:8px 16px;border-radius:8px;color:black;font-weight:bold;cursor:pointer;">Analyze</button>' +
         '<button onclick="deleteDocument(' + doc.id + ',event)" style="background:#451a1a;border:none;padding:8px 16px;border-radius:8px;color:#f87171;font-weight:bold;cursor:pointer;">Delete</button></div>';
       list.appendChild(div);
     });
