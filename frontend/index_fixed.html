@@ -426,9 +426,9 @@ body{background:#020817;color:white;height:100vh;display:flex}
         <div id="docChatArea" style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:16px;min-height:200px;max-height:400px;overflow-y:auto;margin-bottom:16px;">
           <p style="color:#64748b;text-align:center;">Select a document and ask a question</p>
         </div>
-        <div class="search-box" style="max-width:100%;">
-          <input type="text" id="docQuestionInput" placeholder="Ask about this document...">
-          <button onclick="analyzeDocument()">Analyze</button>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input type="text" id="docQuestionInput" placeholder="Ask about this document..." style="flex:1;padding:12px 16px;background:#0f172a;border:1px solid #1e293b;border-radius:10px;color:white;font-size:15px;outline:none;">
+          <button onclick="analyzeDocument()" style="background:#dfff00;border:none;padding:12px 24px;border-radius:10px;color:black;font-weight:bold;cursor:pointer;font-size:15px;white-space:nowrap;">Analyze</button>
         </div>
       </div>
     </div>
