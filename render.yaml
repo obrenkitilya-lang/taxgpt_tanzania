@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: taxgpt-tanzania
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: taxgpt-db
+          property: connectionString
+
+databases:
+  - name: taxgpt-db
+    databaseName: taxgpt
+    user: taxgpt
