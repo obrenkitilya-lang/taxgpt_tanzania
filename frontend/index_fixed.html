@@ -1,81 +1,4 @@
-<div class="tool-page hidden" id="businessSetupPage">
-  <div class="page-header">
-    <h2>Business Setup in Tanzania</h2>
-    <p>Select your business type to get started</p>
-  </div>
-
-  <div id="bizStep1">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:32px;">
-      <div class="biz-card" onclick="selectBizType('Limited Company')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;transition:all 0.2s;">
-        <div style="font-size:36px;margin-bottom:12px;">🏢</div>
-        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:8px;">Limited Company</div>
-        <div style="color:#94a3b8;font-size:13px;">Separate legal entity, limited liability for shareholders</div>
-      </div>
-      <div class="biz-card" onclick="selectBizType('Branch of Foreign Company')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;transition:all 0.2s;">
-        <div style="font-size:36px;margin-bottom:12px;">🌍</div>
-        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:8px;">Branch of Foreign Company</div>
-        <div style="color:#94a3b8;font-size:13px;">Extend your foreign business operations into Tanzania</div>
-      </div>
-      <div class="biz-card" onclick="selectBizType('NGO')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;transition:all 0.2s;">
-        <div style="font-size:36px;margin-bottom:12px;">🤝</div>
-        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:8px;">NGO</div>
-        <div style="color:#94a3b8;font-size:13px;">Non-governmental organization for social or charitable work</div>
-      </div>
-      <div class="biz-card" onclick="selectBizType('Sole Trader')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;transition:all 0.2s;">
-        <div style="font-size:36px;margin-bottom:12px;">👤</div>
-        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:8px;">Sole Trader</div>
-        <div style="color:#94a3b8;font-size:13px;">Simple individual business ownership, full control</div>
-      </div>
-      <div class="biz-card" onclick="selectBizType('Partnership')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;transition:all 0.2s;">
-        <div style="font-size:36px;margin-bottom:12px;">🤝</div>
-        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:8px;">Partnership</div>
-        <div style="color:#94a3b8;font-size:13px;">Two or more individuals sharing ownership and profits</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="bizStep2" style="display:none;">
-    <button onclick="document.getElementById('bizStep2').style.display='none';document.getElementById('bizStep1').style.display='block';" style="background:none;border:1px solid #334155;color:#94a3b8;padding:8px 16px;border-radius:8px;cursor:pointer;margin-bottom:20px;">← Back</button>
-    
-    <div id="bizInfoBox" style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px;margin-bottom:24px;">
-      <h3 id="bizTypeName" style="color:#dfff00;margin-bottom:16px;"></h3>
-      <div id="bizInfoContent" style="color:#cbd5e1;line-height:1.7;"></div>
-      <div style="background:#1e293b;border-radius:12px;padding:16px;margin-top:16px;border-left:3px solid #dfff00;">
-        <p style="color:#dfff00;font-weight:600;margin-bottom:4px;">Want the complete process & requirements?</p>
-        <p style="color:#94a3b8;font-size:14px;margin:0;">Fill in your details below and our advisors will contact you within 24 hours with a full guide and personalized assistance.</p>
-      </div>
-    </div>
-
-    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px;">
-      <h3 style="color:white;margin-bottom:20px;">Get Expert Guidance</h3>
-      <input type="hidden" id="leadBizType">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-        <div>
-          <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Full Name *</label>
-          <input type="text" id="leadName" placeholder="John Doe" style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:15px;outline:none;box-sizing:border-box;">
-        </div>
-        <div>
-          <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Email Address *</label>
-          <input type="email" id="leadEmail" placeholder="john@example.com" style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:15px;outline:none;box-sizing:border-box;">
-        </div>
-        <div>
-          <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Phone Number *</label>
-          <input type="tel" id="leadPhone" placeholder="+255 700 000000" style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:15px;outline:none;box-sizing:border-box;">
-        </div>
-        <div>
-          <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Country</label>
-          <input type="text" id="leadCountry" placeholder="Tanzania / USA / UK..." style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:15px;outline:none;box-sizing:border-box;">
-        </div>
-      </div>
-      <div style="margin-bottom:20px;">
-        <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Brief Business Description (optional)</label>
-        <textarea id="leadDesc" placeholder="Tell us about your business idea..." rows="3" style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:15px;outline:none;resize:vertical;box-sizing:border-box;"></textarea>
-      </div>
-      <button onclick="submitBusinessLead()" style="background:#dfff00;border:none;padding:14px 32px;border-radius:10px;color:black;font-weight:700;cursor:pointer;font-size:16px;width:100%;">Request Free Consultation</button>
-      <div id="leadMsg" style="margin-top:12px;text-align:center;"></div>
-    </div>
-  </div>
-</div><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -573,6 +496,74 @@ body{background:#020817;color:white;height:100vh;display:flex}
         <div style="display:flex;gap:8px;margin-top:8px;">
           <input type="text" id="docQuestionInput" placeholder="Ask about this document..." style="flex:1;padding:12px 16px;background:#0f172a;border:1px solid #1e293b;border-radius:10px;color:white;font-size:15px;outline:none;">
           <button onclick="analyzeDocument()" style="background:#dfff00;border:none;padding:12px 24px;border-radius:10px;color:black;font-weight:bold;cursor:pointer;font-size:15px;white-space:nowrap;">Analyze</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tool-page hidden" id="businessSetupPage">
+    <div style="max-width:860px;margin:0 auto;padding:20px 0;">
+      <div id="bizStep1">
+        <h2 style="color:white;margin-bottom:6px;">Business Setup in Tanzania</h2>
+        <p style="color:#94a3b8;margin-bottom:28px;">Select your business type to get started</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">
+          <div onclick="selectBizType('Limited Company')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#dfff00'" onmouseout="this.style.borderColor='#1e293b'">
+            <div style="font-size:36px;margin-bottom:12px;">&#127970;</div>
+            <div style="font-weight:700;font-size:15px;color:white;margin-bottom:8px;">Limited Company</div>
+            <div style="color:#94a3b8;font-size:13px;">Separate legal entity, limited liability</div>
+          </div>
+          <div onclick="selectBizType('Branch of Foreign Company')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#dfff00'" onmouseout="this.style.borderColor='#1e293b'">
+            <div style="font-size:36px;margin-bottom:12px;">&#127758;</div>
+            <div style="font-weight:700;font-size:15px;color:white;margin-bottom:8px;">Branch of Foreign Company</div>
+            <div style="color:#94a3b8;font-size:13px;">Extend operations into Tanzania</div>
+          </div>
+          <div onclick="selectBizType('NGO')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#dfff00'" onmouseout="this.style.borderColor='#1e293b'">
+            <div style="font-size:36px;margin-bottom:12px;">&#127963;</div>
+            <div style="font-weight:700;font-size:15px;color:white;margin-bottom:8px;">NGO</div>
+            <div style="color:#94a3b8;font-size:13px;">Non-profit / charitable organization</div>
+          </div>
+          <div onclick="selectBizType('Sole Trader')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#dfff00'" onmouseout="this.style.borderColor='#1e293b'">
+            <div style="font-size:36px;margin-bottom:12px;">&#128100;</div>
+            <div style="font-weight:700;font-size:15px;color:white;margin-bottom:8px;">Sole Trader</div>
+            <div style="color:#94a3b8;font-size:13px;">Simple individual ownership</div>
+          </div>
+          <div onclick="selectBizType('Partnership')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;" onmouseover="this.style.borderColor='#dfff00'" onmouseout="this.style.borderColor='#1e293b'">
+            <div style="font-size:36px;margin-bottom:12px;">&#128101;</div>
+            <div style="font-weight:700;font-size:15px;color:white;margin-bottom:8px;">Partnership</div>
+            <div style="color:#94a3b8;font-size:13px;">Two or more shared owners</div>
+          </div>
+        </div>
+      </div>
+      <div id="bizStep2" style="display:none;">
+        <button onclick="document.getElementById('bizStep2').style.display='none';document.getElementById('bizStep1').style.display='block';document.getElementById('bizAiMessages').innerHTML='';" style="background:none;border:1px solid #334155;color:#94a3b8;padding:8px 16px;border-radius:8px;cursor:pointer;margin-bottom:20px;">&larr; Back</button>
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px;margin-bottom:20px;">
+          <h3 id="bizTypeName" style="color:#dfff00;margin:0 0 14px;font-size:22px;"></h3>
+          <div id="bizInfoContent" style="color:#cbd5e1;line-height:1.8;"></div>
+          <div style="background:#1e293b;border-radius:12px;padding:14px 18px;margin-top:16px;border-left:3px solid #dfff00;">
+            <p style="color:#dfff00;font-weight:600;margin:0 0 4px;">Want the full step-by-step process?</p>
+            <p style="color:#94a3b8;font-size:14px;margin:0;">Fill in your details below &mdash; our advisors will contact you within 24 hours.</p>
+          </div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px;margin-bottom:20px;">
+          <h4 style="color:white;margin:0 0 14px;">Ask a Question About This Business Type</h4>
+          <div id="bizAiMessages" style="max-height:300px;overflow-y:auto;margin-bottom:14px;display:flex;flex-direction:column;gap:12px;"></div>
+          <div style="display:flex;gap:10px;">
+            <input type="text" id="bizAiInput" placeholder="e.g. What are the tax obligations? How long does registration take?" onkeydown="if(event.key==='Enter')askBizAI()" style="flex:1;padding:12px 16px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:14px;outline:none;">
+            <button onclick="askBizAI()" style="background:#dfff00;border:none;padding:12px 20px;border-radius:10px;color:black;font-weight:700;cursor:pointer;white-space:nowrap;">Ask AI</button>
+          </div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px;">
+          <h4 style="color:white;margin:0 0 18px;">Get Expert Help &mdash; Free Consultation</h4>
+          <input type="hidden" id="leadBizType">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+            <div><label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:5px;">Full Name *</label><input type="text" id="leadName" placeholder="John Doe" style="width:100%;padding:11px 14px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:14px;outline:none;box-sizing:border-box;"></div>
+            <div><label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:5px;">Email *</label><input type="email" id="leadEmail" placeholder="john@example.com" style="width:100%;padding:11px 14px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:14px;outline:none;box-sizing:border-box;"></div>
+            <div><label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:5px;">Phone *</label><input type="tel" id="leadPhone" placeholder="+255 700 000000" style="width:100%;padding:11px 14px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:14px;outline:none;box-sizing:border-box;"></div>
+            <div><label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:5px;">Country</label><input type="text" id="leadCountry" placeholder="Tanzania / UK / USA..." style="width:100%;padding:11px 14px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:14px;outline:none;box-sizing:border-box;"></div>
+          </div>
+          <div style="margin-bottom:16px;"><label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:5px;">Business Description (optional)</label><textarea id="leadDesc" placeholder="Brief description of your business idea..." rows="3" style="width:100%;padding:11px 14px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:14px;outline:none;resize:vertical;box-sizing:border-box;"></textarea></div>
+          <button onclick="submitBusinessLead()" style="background:#dfff00;border:none;padding:13px 28px;border-radius:10px;color:black;font-weight:700;cursor:pointer;font-size:15px;width:100%;">Request Free Consultation</button>
+          <div id="leadMsg" style="margin-top:12px;text-align:center;font-size:14px;"></div>
         </div>
       </div>
     </div>
