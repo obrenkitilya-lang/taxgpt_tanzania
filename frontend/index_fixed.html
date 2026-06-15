@@ -1,10 +1,154 @@
-<!DOCTYPE html>
+<div id="businessSetupPage" class="page">
+  <div class="page-header">
+    <h2>Business Setup in Tanzania</h2>
+    <p>Select your business type to get started</p>
+  </div>
+
+  <div id="bizStep1">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:32px;">
+      <div class="biz-card" onclick="selectBizType('Limited Company')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;transition:all 0.2s;">
+        <div style="font-size:36px;margin-bottom:12px;">🏢</div>
+        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:8px;">Limited Company</div>
+        <div style="color:#94a3b8;font-size:13px;">Separate legal entity, limited liability for shareholders</div>
+      </div>
+      <div class="biz-card" onclick="selectBizType('Branch of Foreign Company')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;transition:all 0.2s;">
+        <div style="font-size:36px;margin-bottom:12px;">🌍</div>
+        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:8px;">Branch of Foreign Company</div>
+        <div style="color:#94a3b8;font-size:13px;">Extend your foreign business operations into Tanzania</div>
+      </div>
+      <div class="biz-card" onclick="selectBizType('NGO')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;transition:all 0.2s;">
+        <div style="font-size:36px;margin-bottom:12px;">🤝</div>
+        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:8px;">NGO</div>
+        <div style="color:#94a3b8;font-size:13px;">Non-governmental organization for social or charitable work</div>
+      </div>
+      <div class="biz-card" onclick="selectBizType('Sole Trader')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;transition:all 0.2s;">
+        <div style="font-size:36px;margin-bottom:12px;">👤</div>
+        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:8px;">Sole Trader</div>
+        <div style="color:#94a3b8;font-size:13px;">Simple individual business ownership, full control</div>
+      </div>
+      <div class="biz-card" onclick="selectBizType('Partnership')" style="background:#0f172a;border:2px solid #1e293b;border-radius:16px;padding:24px;cursor:pointer;text-align:center;transition:all 0.2s;">
+        <div style="font-size:36px;margin-bottom:12px;">🤝</div>
+        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:8px;">Partnership</div>
+        <div style="color:#94a3b8;font-size:13px;">Two or more individuals sharing ownership and profits</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="bizStep2" style="display:none;">
+    <button onclick="document.getElementById('bizStep2').style.display='none';document.getElementById('bizStep1').style.display='block';" style="background:none;border:1px solid #334155;color:#94a3b8;padding:8px 16px;border-radius:8px;cursor:pointer;margin-bottom:20px;">← Back</button>
+    
+    <div id="bizInfoBox" style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px;margin-bottom:24px;">
+      <h3 id="bizTypeName" style="color:#dfff00;margin-bottom:16px;"></h3>
+      <div id="bizInfoContent" style="color:#cbd5e1;line-height:1.7;"></div>
+      <div style="background:#1e293b;border-radius:12px;padding:16px;margin-top:16px;border-left:3px solid #dfff00;">
+        <p style="color:#dfff00;font-weight:600;margin-bottom:4px;">Want the complete process & requirements?</p>
+        <p style="color:#94a3b8;font-size:14px;margin:0;">Fill in your details below and our advisors will contact you within 24 hours with a full guide and personalized assistance.</p>
+      </div>
+    </div>
+
+    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px;">
+      <h3 style="color:white;margin-bottom:20px;">Get Expert Guidance</h3>
+      <input type="hidden" id="leadBizType">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+        <div>
+          <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Full Name *</label>
+          <input type="text" id="leadName" placeholder="John Doe" style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:15px;outline:none;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Email Address *</label>
+          <input type="email" id="leadEmail" placeholder="john@example.com" style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:15px;outline:none;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Phone Number *</label>
+          <input type="tel" id="leadPhone" placeholder="+255 700 000000" style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:15px;outline:none;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Country</label>
+          <input type="text" id="leadCountry" placeholder="Tanzania / USA / UK..." style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:15px;outline:none;box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Brief Business Description (optional)</label>
+        <textarea id="leadDesc" placeholder="Tell us about your business idea..." rows="3" style="width:100%;padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:white;font-size:15px;outline:none;resize:vertical;box-sizing:border-box;"></textarea>
+      </div>
+      <button onclick="submitBusinessLead()" style="background:#dfff00;border:none;padding:14px 32px;border-radius:10px;color:black;font-weight:700;cursor:pointer;font-size:16px;width:100%;">Request Free Consultation</button>
+      <div id="leadMsg" style="margin-top:12px;text-align:center;"></div>
+    </div>
+  </div>
+</div><!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TaxGPT Tanzania</title>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
+// ===== BUSINESS SETUP =====
+const bizInfo = {
+  'Limited Company': {
+    overview: '<b>Key facts:</b><ul style="margin:8px 0 0 20px;"><li>Minimum 2 shareholders, 1 director</li><li>Registered with BRELA (Business Registrations and Licensing Agency)</li><li>Requires Memorandum & Articles of Association</li><li>Corporate tax rate: 30%</li><li>VAT registration required if turnover exceeds TZS 100M/year</li></ul>',
+    teaser: 'Process involves name reservation, document notarization, BRELA registration, TIN registration, local authority business licence, and more...'
+  },
+  'Branch of Foreign Company': {
+    overview: '<b>Key facts:</b><ul style="margin:8px 0 0 20px;"><li>Parent company must be registered abroad</li><li>Must register with BRELA as a foreign company branch</li><li>Requires certified copies of parent company documents</li><li>Subject to Tanzanian tax on income sourced in Tanzania</li><li>May require sector-specific licences (e.g. TIC permit for investment)</li></ul>',
+    teaser: 'Process involves BRELA foreign branch registration, TIC investment approval, immigration permits for foreign staff, and more...'
+  },
+  'NGO': {
+    overview: '<b>Key facts:</b><ul style="margin:8px 0 0 20px;"><li>Registered under NGO Act with the NGO Coordination Board</li><li>Must have a constitution and board of trustees</li><li>Annual reporting and renewal required</li><li>Tax exemptions available but must be applied for</li><li>Foreign-funded NGOs have additional compliance requirements</li></ul>',
+    teaser: 'Process involves drafting constitution, NGO Board registration, TIN, opening a bank account, and annual compliance...'
+  },
+  'Sole Trader': {
+    overview: '<b>Key facts:</b><ul style="margin:8px 0 0 20px;"><li>Simplest and cheapest business structure</li><li>Registered as a business name with BRELA</li><li>Owner personally liable for all debts</li><li>Income taxed at individual rates (up to 30%)</li><li>Requires local authority business licence</li></ul>',
+    teaser: 'Process involves business name registration, TIN, local authority licence, and sector permits where applicable...'
+  },
+  'Partnership': {
+    overview: '<b>Key facts:</b><ul style="margin:8px 0 0 20px;"><li>2–20 partners allowed</li><li>Registered with BRELA under the Business Names Act</li><li>Partnership agreement strongly recommended</li><li>Partners jointly liable for business debts</li><li>Profits split and taxed at individual partner level</li></ul>',
+    teaser: 'Process involves drafting a partnership deed, BRELA registration, TIN for the partnership, local authority licence...'
+  }
+};
+
+function selectBizType(type) {
+  document.getElementById('leadBizType').value = type;
+  document.getElementById('bizTypeName').textContent = type;
+  const info = bizInfo[type];
+  document.getElementById('bizInfoContent').innerHTML = info.overview + '<p style="margin-top:12px;color:#64748b;font-style:italic;">' + info.teaser + '</p>';
+  document.getElementById('bizStep1').style.display = 'none';
+  document.getElementById('bizStep2').style.display = 'block';
+  document.getElementById('leadMsg').innerHTML = '';
+}
+
+async function submitBusinessLead() {
+  const name = document.getElementById('leadName').value.trim();
+  const email = document.getElementById('leadEmail').value.trim();
+  const phone = document.getElementById('leadPhone').value.trim();
+  const country = document.getElementById('leadCountry').value.trim();
+  const btype = document.getElementById('leadBizType').value;
+  const desc = document.getElementById('leadDesc').value.trim();
+  const msgEl = document.getElementById('leadMsg');
+  if (!name || !email || !phone) {
+    msgEl.innerHTML = '<span style="color:#f87171;">Please fill in Name, Email and Phone.</span>';
+    return;
+  }
+  msgEl.innerHTML = '<span style="color:#94a3b8;">Submitting...</span>';
+  try {
+    const res = await fetch('/api/business-leads', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      credentials: 'include',
+      body: JSON.stringify({name, email, phone, country, business_type: btype, business_description: desc})
+    });
+    const data = await res.json();
+    if (res.ok) {
+      msgEl.innerHTML = '<span style="color:#4ade80;font-weight:600;">✓ ' + data.message + '</span>';
+      ['leadName','leadEmail','leadPhone','leadCountry','leadDesc'].forEach(id => document.getElementById(id).value = '');
+    } else {
+      msgEl.innerHTML = '<span style="color:#f87171;">' + (data.error || 'Submission failed') + '</span>';
+    }
+  } catch(e) {
+    msgEl.innerHTML = '<span style="color:#f87171;">Network error. Please try again.</span>';
+  }
+}
+
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
 body{background:#020817;color:white;height:100vh;display:flex}

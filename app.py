@@ -157,6 +157,19 @@ class AuditLog(db.Model):
     def to_dict(self):
         return {'id': self.id, 'action': self.action, 'entity_type': self.entity_type, 'entity_id': self.entity_id, 'details': self.details, 'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None}
 
+class BusinessLead(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    email = db.Column(db.String(200), nullable=False)
+    phone = db.Column(db.String(50), nullable=False)
+    country = db.Column(db.String(100), nullable=False)
+    business_type = db.Column(db.String(100), nullable=False)
+    business_description = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(50), default='new')
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    def to_dict(self):
+        return {'id': self.id, 'name': self.name, 'email': self.email, 'phone': self.phone, 'country': self.country, 'business_type': self.business_type, 'business_description': self.business_description, 'status': self.status, 'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None}
+
 CORS(app, supports_credentials=True)
 
 def admin_required(f):
@@ -1259,6 +1272,52 @@ def test():
 # ========================
 # DATABASE INIT & MIGRATION
 # ========================
+
+# ========================
+# BUSINESS LEADS APIs
+# ========================
+
+@app.route("/api/business-leads", methods=["POST"])
+def create_business_lead():
+    try:
+        data = request.get_json()
+        name = data.get("name", "").strip()
+        email = data.get("email", "").strip()
+        phone = data.get("phone", "").strip()
+        country = data.get("country", "").strip()
+        business_type = data.get("business_type", "").strip()
+        business_description = data.get("business_description", "").strip()
+        if not name or not email or not phone or not business_type:
+            return jsonify({"error": "Name, email, phone and business type are required"}), 400
+        lead = BusinessLead(name=name, email=email, phone=phone, country=country, business_type=business_type, business_description=business_description)
+        db.session.add(lead)
+        db.session.commit()
+        log_audit("new_business_lead", "business_lead", lead.id, "Lead: " + name + " - " + business_type)
+        return jsonify({"message": "Thank you! Our advisors will contact you within 24 hours.", "lead_id": lead.id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/business-leads", methods=["GET"])
+@admin_required
+def get_business_leads():
+    try:
+        leads = BusinessLead.query.order_by(BusinessLead.created_at.desc()).all()
+        return jsonify([l.to_dict() for l in leads])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/business-leads/<int:lead_id>/status", methods=["PUT"])
+@admin_required
+def update_lead_status(lead_id):
+    try:
+        lead = BusinessLead.query.get_or_404(lead_id)
+        data = request.get_json()
+        lead.status = data.get("status", lead.status)
+        db.session.commit()
+        return jsonify({"message": "Status updated", "lead": lead.to_dict()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 def migrate_db():
     with app.app_context():
