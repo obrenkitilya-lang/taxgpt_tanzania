@@ -6,37 +6,57 @@
 <title>TaxGPT Tanzania</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
 // ===== BUSINESS SETUP =====
+
 const bizInfo = {
-  'Limited Company': {
-    overview: '<b>Key facts:</b><ul style="margin:8px 0 0 20px;"><li>Minimum 2 shareholders, 1 director</li><li>Registered with BRELA (Business Registrations and Licensing Agency)</li><li>Requires Memorandum & Articles of Association</li><li>Corporate tax rate: 30%</li><li>VAT registration required if turnover exceeds TZS 100M/year</li></ul>',
-    teaser: 'Process involves name reservation, document notarization, BRELA registration, TIN registration, local authority business licence, and more...'
-  },
-  'Branch of Foreign Company': {
-    overview: '<b>Key facts:</b><ul style="margin:8px 0 0 20px;"><li>Parent company must be registered abroad</li><li>Must register with BRELA as a foreign company branch</li><li>Requires certified copies of parent company documents</li><li>Subject to Tanzanian tax on income sourced in Tanzania</li><li>May require sector-specific licences (e.g. TIC permit for investment)</li></ul>',
-    teaser: 'Process involves BRELA foreign branch registration, TIC investment approval, immigration permits for foreign staff, and more...'
-  },
-  'NGO': {
-    overview: '<b>Key facts:</b><ul style="margin:8px 0 0 20px;"><li>Registered under NGO Act with the NGO Coordination Board</li><li>Must have a constitution and board of trustees</li><li>Annual reporting and renewal required</li><li>Tax exemptions available but must be applied for</li><li>Foreign-funded NGOs have additional compliance requirements</li></ul>',
-    teaser: 'Process involves drafting constitution, NGO Board registration, TIN, opening a bank account, and annual compliance...'
-  },
-  'Sole Trader': {
-    overview: '<b>Key facts:</b><ul style="margin:8px 0 0 20px;"><li>Simplest and cheapest business structure</li><li>Registered as a business name with BRELA</li><li>Owner personally liable for all debts</li><li>Income taxed at individual rates (up to 30%)</li><li>Requires local authority business licence</li></ul>',
-    teaser: 'Process involves business name registration, TIN, local authority licence, and sector permits where applicable...'
-  },
-  'Partnership': {
-    overview: '<b>Key facts:</b><ul style="margin:8px 0 0 20px;"><li>2–20 partners allowed</li><li>Registered with BRELA under the Business Names Act</li><li>Partnership agreement strongly recommended</li><li>Partners jointly liable for business debts</li><li>Profits split and taxed at individual partner level</li></ul>',
-    teaser: 'Process involves drafting a partnership deed, BRELA registration, TIN for the partnership, local authority licence...'
-  }
+  'Limited Company': '<b>Overview:</b><br>Most common structure in Tanzania. Shareholders have limited liability — personal assets are protected.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Minimum 2 shareholders, 1 director</li><li>Registered with BRELA</li><li>Corporate income tax: 30%</li><li>VAT if turnover exceeds TZS 100M/year</li><li>Annual returns to BRELA and TRA</li></ul><br><span style="color:#64748b;font-style:italic;">Full process and costs available upon consultation.</span>',
+  'Branch of Foreign Company': '<b>Overview:</b><br>Allows a foreign company to operate in Tanzania without a separate local entity.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Parent must be registered abroad</li><li>Register with BRELA as a foreign branch</li><li>May require TIC permit</li><li>Taxed on Tanzania-sourced income</li><li>Work permits needed for foreign staff</li></ul><br><span style="color:#64748b;font-style:italic;">Full process and immigration details upon consultation.</span>',
+  'NGO': '<b>Overview:</b><br>For social, charitable or development purposes, regulated under the NGO Act.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Registered with the NGO Coordination Board</li><li>Constitution and board of trustees (min. 5) required</li><li>Annual reporting and renewal</li><li>Tax exemptions via TRA</li><li>Cannot distribute profits to members</li></ul><br><span style="color:#64748b;font-style:italic;">Full process and compliance details upon consultation.</span>',
+  'Sole Trader': '<b>Overview:</b><br>Simplest structure — one person owns everything but is personally liable for all debts.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Business name registered with BRELA</li><li>No separation of personal and business assets</li><li>Income taxed at individual rates (up to 30%)</li><li>Requires local authority business licence</li><li>VAT if turnover exceeds TZS 100M/year</li></ul><br><span style="color:#64748b;font-style:italic;">Full steps and sector licences upon consultation.</span>',
+  'Partnership': '<b>Overview:</b><br>2 to 20 people sharing management and profits, all jointly liable.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>2 to 20 partners</li><li>Registered with BRELA under Business Names Act</li><li>Written Partnership Agreement strongly recommended</li><li>Partners personally liable for debts</li><li>Profits taxed at each partner individual rate</li></ul><br><span style="color:#64748b;font-style:italic;">Full process and deed templates upon consultation.</span>'
 };
 
 function selectBizType(type) {
   document.getElementById('leadBizType').value = type;
   document.getElementById('bizTypeName').textContent = type;
-  const info = bizInfo[type];
-  document.getElementById('bizInfoContent').innerHTML = info.overview + '<p style="margin-top:12px;color:#64748b;font-style:italic;">' + info.teaser + '</p>';
+  document.getElementById('bizInfoContent').innerHTML = bizInfo[type] || '';
   document.getElementById('bizStep1').style.display = 'none';
   document.getElementById('bizStep2').style.display = 'block';
   document.getElementById('leadMsg').innerHTML = '';
+  document.getElementById('bizAiMessages').innerHTML = '';
+}
+
+async function askBizAI() {
+  const input = document.getElementById('bizAiInput');
+  const q = input.value.trim();
+  if (!q) return;
+  const bizType = document.getElementById('leadBizType').value;
+  const msgs = document.getElementById('bizAiMessages');
+  const userBubble = document.createElement('div');
+  userBubble.style.cssText = 'background:#1e293b;border-radius:10px;padding:10px 14px;align-self:flex-end;color:white;max-width:80%;font-size:14px;';
+  userBubble.textContent = q;
+  msgs.appendChild(userBubble);
+  const typing = document.createElement('div');
+  typing.style.cssText = 'color:#94a3b8;font-size:13px;font-style:italic;';
+  typing.textContent = 'Thinking...';
+  msgs.appendChild(typing);
+  msgs.scrollTop = msgs.scrollHeight;
+  input.value = '';
+  try {
+    const res = await fetch('/api/chat', {method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({message:'Regarding setting up a '+bizType+' in Tanzania: '+q,session_id:'biz_'+Date.now()})});
+    const data = await res.json();
+    typing.remove();
+    const aiBubble = document.createElement('div');
+    aiBubble.style.cssText = 'background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:10px 14px;color:#cbd5e1;max-width:90%;font-size:14px;line-height:1.6;';
+    aiBubble.innerHTML = (data.response || data.error || 'No response').replace(/\n/g,'<br>');
+    msgs.appendChild(aiBubble);
+    msgs.scrollTop = msgs.scrollHeight;
+  } catch(e) {
+    typing.remove();
+    const errDiv = document.createElement('div');
+    errDiv.style.color = '#f87171';
+    errDiv.textContent = 'Error: ' + e.message;
+    msgs.appendChild(errDiv);
+  }
 }
 
 async function submitBusinessLead() {
@@ -47,28 +67,16 @@ async function submitBusinessLead() {
   const btype = document.getElementById('leadBizType').value;
   const desc = document.getElementById('leadDesc').value.trim();
   const msgEl = document.getElementById('leadMsg');
-  if (!name || !email || !phone) {
-    msgEl.innerHTML = '<span style="color:#f87171;">Please fill in Name, Email and Phone.</span>';
-    return;
-  }
+  if (!name || !email || !phone) { msgEl.innerHTML = '<span style="color:#f87171;">Please fill in Name, Email and Phone.</span>'; return; }
   msgEl.innerHTML = '<span style="color:#94a3b8;">Submitting...</span>';
   try {
-    const res = await fetch('/api/business-leads', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      credentials: 'include',
-      body: JSON.stringify({name, email, phone, country, business_type: btype, business_description: desc})
-    });
+    const res = await fetch('/api/business-leads',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({name,email,phone,country,business_type:btype,business_description:desc})});
     const data = await res.json();
     if (res.ok) {
-      msgEl.innerHTML = '<span style="color:#4ade80;font-weight:600;">✓ ' + data.message + '</span>';
-      ['leadName','leadEmail','leadPhone','leadCountry','leadDesc'].forEach(id => document.getElementById(id).value = '');
-    } else {
-      msgEl.innerHTML = '<span style="color:#f87171;">' + (data.error || 'Submission failed') + '</span>';
-    }
-  } catch(e) {
-    msgEl.innerHTML = '<span style="color:#f87171;">Network error. Please try again.</span>';
-  }
+      msgEl.innerHTML = '<span style="color:#4ade80;font-size:15px;font-weight:600;">&#10003; '+data.message+'</span>';
+      ['leadName','leadEmail','leadPhone','leadCountry','leadDesc'].forEach(id=>document.getElementById(id).value='');
+    } else { msgEl.innerHTML = '<span style="color:#f87171;">'+(data.error||'Submission failed')+'</span>'; }
+  } catch(e) { msgEl.innerHTML = '<span style="color:#f87171;">Network error. Please try again.</span>'; }
 }
 
 </script>
