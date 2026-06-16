@@ -236,6 +236,65 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
 .user-menu-divider{height:1px;background:#161f3a;margin:6px 0}
 .user-menu-logout{color:#f87171 !important}
 .user-menu-logout:hover{background:#450a0a !important}
+
+/* ── Mobile responsive ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body { flex-direction: column; height: auto; min-height: 100vh; }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: column;
+    border-right: none;
+    border-bottom: 1px solid #161f3a;
+    position: relative;
+  }
+  .sidebar-header { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; flex-direction: row; }
+  .logo { margin-bottom: 0; font-size: 20px; }
+  .new-chat { width: auto; padding: 8px 16px; font-size: 13px; }
+
+  /* Hide sidebar sections on mobile — toggle via hamburger */
+  .tools-section, .history-section, .sidebar-bottom { display: none; }
+  .sidebar.mobile-open .tools-section,
+  .sidebar.mobile-open .history-section,
+  .sidebar.mobile-open .sidebar-bottom { display: flex; flex-direction: column; }
+  .sidebar.mobile-open .history-section { max-height: 200px; }
+
+  /* Hamburger button */
+  .hamburger { display: flex; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 6px; }
+  .hamburger span { width: 22px; height: 2px; background: #94a3b8; border-radius: 2px; display: block; transition: all 0.2s; }
+  .sidebar.mobile-open .hamburger span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+  .sidebar.mobile-open .hamburger span:nth-child(2) { opacity: 0; }
+  .sidebar.mobile-open .hamburger span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+  .main { flex: 1; height: auto; overflow: visible; }
+  .top-section { padding: 20px 16px 12px; }
+  .top-section h1 { font-size: 26px; }
+  .top-section p { font-size: 13px; }
+
+  .chat-area { padding: 16px; gap: 14px; }
+  .message { max-width: 95%; font-size: 14px; padding: 12px 14px; }
+  .bottom-section { padding: 12px 16px 20px; }
+  .search-box { border-radius: 14px; }
+  .search-box textarea { font-size: 14px; padding: 12px; }
+
+  .tool-page { padding: 16px; }
+  .calculator-grid { grid-template-columns: 1fr; gap: 14px; }
+  .calc-card { padding: 18px; }
+
+  .compare-controls { grid-template-columns: 1fr; }
+  .tax-updates-tabs { overflow-x: auto; flex-wrap: nowrap; }
+  .tax-tab { padding: 10px 14px; font-size: 13px; white-space: nowrap; }
+
+  .modal-content { width: 95%; padding: 24px 20px; }
+  .news-modal { padding: 20px; }
+
+  .user-menu-dropdown { left: 4px; right: 4px; }
+}
+
+@media (min-width: 769px) {
+  .hamburger { display: none; }
+}
 </style>
 
 </head>
