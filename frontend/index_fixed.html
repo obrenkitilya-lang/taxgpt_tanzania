@@ -506,6 +506,38 @@ body{background:#020817;color:white;height:100vh;display:flex}
           <button onclick="analyzeDocument()" style="background:#dfff00;border:none;padding:12px 24px;border-radius:10px;color:black;font-weight:bold;cursor:pointer;font-size:15px;white-space:nowrap;">Analyze</button>
         </div>
       </div>
+
+      <div id="traDrafterSection" class="hidden" style="margin-top:24px;">
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px;margin-bottom:16px;">
+          <h3 style="color:#dfff00;margin:0 0 6px;font-size:18px;">Draft TRA Response</h3>
+          <p style="color:#94a3b8;font-size:13px;margin:0 0 18px;">Select the type of response to draft based on this notice</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:16px;">
+            <button onclick="draftTRAResponse('demand_notice')" style="background:#1e293b;border:1px solid #334155;color:#cbd5e1;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;text-align:left;width:100%;" onmouseover="this.style.borderColor='#dfff00'" onmouseout="this.style.borderColor='#334155'">📋 Response to Demand Notice</button>
+            <button onclick="draftTRAResponse('tax_examination')" style="background:#1e293b;border:1px solid #334155;color:#cbd5e1;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;text-align:left;width:100%;" onmouseover="this.style.borderColor='#dfff00'" onmouseout="this.style.borderColor='#334155'">🔍 Response to Tax Examination</button>
+            <button onclick="draftTRAResponse('tax_audit')" style="background:#1e293b;border:1px solid #334155;color:#cbd5e1;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;text-align:left;width:100%;" onmouseover="this.style.borderColor='#dfff00'" onmouseout="this.style.borderColor='#334155'">📊 Response to Tax Audit</button>
+            <button onclick="draftTRAResponse('vat_verification')" style="background:#1e293b;border:1px solid #334155;color:#cbd5e1;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;text-align:left;width:100%;" onmouseover="this.style.borderColor='#dfff00'" onmouseout="this.style.borderColor='#334155'">💼 Response to VAT Verification</button>
+            <button onclick="draftTRAResponse('tax_investigation')" style="background:#1e293b;border:1px solid #334155;color:#cbd5e1;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;text-align:left;width:100%;" onmouseover="this.style.borderColor='#dfff00'" onmouseout="this.style.borderColor='#334155'">🕵️ Response to Tax Investigation</button>
+            <button onclick="draftTRAResponse('objection')" style="background:#1e293b;border:1px solid #4a5a00;color:#dfff00;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;text-align:left;width:100%;font-weight:600;" onmouseover="this.style.background='#1a2a00'" onmouseout="this.style.background='#1e293b'">⚖️ Draft Objection to TRA</button>
+            <button onclick="draftTRAResponse('notice_of_appeal')" style="background:#1e293b;border:1px solid #4a5a00;color:#dfff00;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;text-align:left;width:100%;font-weight:600;" onmouseover="this.style.background='#1a2a00'" onmouseout="this.style.background='#1e293b'">📢 Notice of Intention to Appeal</button>
+            <button onclick="draftTRAResponse('trab_appeal')" style="background:#1e293b;border:1px solid #f59e0b;color:#f59e0b;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;text-align:left;width:100%;font-weight:600;" onmouseover="this.style.background='#1a1200'" onmouseout="this.style.background='#1e293b'">🏛️ Appeal Statement — TRAB</button>
+            <button onclick="draftTRAResponse('trat_appeal')" style="background:#1e293b;border:1px solid #f59e0b;color:#f59e0b;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;text-align:left;width:100%;font-weight:600;" onmouseover="this.style.background='#1a1200'" onmouseout="this.style.background='#1e293b'">⚖️ Appeal Statement — TRAT</button>
+            <button onclick="draftTRAResponse('high_court_appeal')" style="background:#1e293b;border:1px solid #ef4444;color:#ef4444;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;text-align:left;width:100%;font-weight:600;" onmouseover="this.style.background='#1a0000'" onmouseout="this.style.background='#1e293b'">🏛️ Appeal Statement — High Court</button>
+          </div>
+          <div id="traDraftLoading" style="display:none;color:#94a3b8;font-style:italic;padding:8px 0;">Drafting document... this may take 15-30 seconds...</div>
+        </div>
+        <div id="traDraftResult" style="display:none;background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+            <h4 id="traDraftTitle" style="color:#dfff00;margin:0;font-size:16px;"></h4>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="traDraftSavedBadge" style="display:none;background:#1a2a00;border:1px solid #4ade80;color:#4ade80;font-size:12px;padding:4px 10px;border-radius:6px;">✓ Saved to My Drafts</span>
+              <span id="traDraftFreeBadge" style="display:none;background:#1a1a2a;border:1px solid #94a3b8;color:#94a3b8;font-size:12px;padding:4px 10px;border-radius:6px;">Upgrade to Premium to save drafts</span>
+              <button onclick="copyTRADraft()" style="background:#1e293b;border:1px solid #334155;color:#cbd5e1;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:13px;">Copy</button>
+              <button onclick="document.getElementById('traDraftResult').style.display='none'" style="background:none;border:1px solid #334155;color:#94a3b8;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;">Close</button>
+            </div>
+          </div>
+          <pre id="traDraftContent" style="white-space:pre-wrap;color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;line-height:1.7;margin:0;max-height:500px;overflow-y:auto;background:#050d1a;padding:16px;border-radius:10px;"></pre>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1592,6 +1624,8 @@ function loadDocuments() {
 function selectDocument(docId, filename, event) {
   event.stopPropagation(); currentDocId = docId;
   document.getElementById('docAnalysisSection').classList.remove('hidden');
+  document.getElementById('traDrafterSection').classList.remove('hidden');
+  document.getElementById('traDraftResult').style.display = 'none';
   document.getElementById('docChatArea').innerHTML = '<p style="color:#64748b;text-align:center;">Document: <strong style="color:#dfff00;">' + escapeHtml(filename) + '</strong><br>Ask a question below</p>';
 }
 
