@@ -305,6 +305,7 @@ body{background:#020817;color:white;height:100vh;display:flex}
         <div class="user-badge" id="userRoleBadge" style="color:#94a3b8;font-size:10px;margin-top:2px;"></div>
       </div>
       <a href="/admin" class="auth-btn" id="adminLink" style="display:none;margin-bottom:8px;">🔒 Admin Panel</a>
+      <button class="auth-btn" id="myAccountBtn" onclick="window.location.href='/account'" style="display:none;margin-bottom:8px;">⚙️ My Account</button>
       <button class="auth-btn" onclick="logout()" style="border-color:#ef4444;color:#ef4444;">Logout</button>
     </div>
   </div>
@@ -677,6 +678,39 @@ body{background:#020817;color:white;height:100vh;display:flex}
     </div>
   </div>
 
+  <div class="tool-page hidden" id="accountPage">
+    <div style="max-width:600px;margin:0 auto;padding:20px;">
+      <h2 style="color:#dfff00;margin-bottom:8px;font-size:28px;">⚙️ My Account</h2>
+      <p style="color:#64748b;margin-bottom:30px;">Manage your account settings</p>
+      <div class="calc-card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:16px;">🌍 Change Country</h3>
+        <p style="color:#64748b;font-size:13px;margin-bottom:12px;">Update your country for relevant tax information.</p>
+        <select id="accountCountry" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:12px;">
+          <option value="Tanzania">🇹🇿 Tanzania</option>
+          <option value="Kenya">🇰🇪 Kenya</option>
+          <option value="Uganda">🇺🇬 Uganda</option>
+        </select>
+        <button onclick="accountChangeCountry()" style="background:#dfff00;color:#000;border:none;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">Update Country</button>
+        <div id="countryMsg" style="margin-top:10px;font-size:13px;"></div>
+      </div>
+      <div class="calc-card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:16px;">🔑 Change Password</h3>
+        <input type="password" id="accCurrentPwd" placeholder="Current password" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:10px;box-sizing:border-box;">
+        <input type="password" id="accNewPwd" placeholder="New password (min 6 chars)" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:10px;box-sizing:border-box;">
+        <input type="password" id="accConfirmPwd" placeholder="Confirm new password" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:12px;box-sizing:border-box;">
+        <button onclick="accountChangePassword()" style="background:#dfff00;color:#000;border:none;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">Change Password</button>
+        <div id="passwordMsg" style="margin-top:10px;font-size:13px;"></div>
+      </div>
+      <div class="calc-card" style="margin-bottom:20px;border-color:#ef4444;">
+        <h3 style="margin-bottom:8px;color:#ef4444;">🗑️ Delete Account</h3>
+        <p style="color:#64748b;font-size:13px;margin-bottom:12px;">This will permanently delete your account and all your data. This cannot be undone.</p>
+        <input type="password" id="accDeletePwd" placeholder="Enter your password to confirm" style="width:100%;background:#0f172a;color:white;border:1px solid #ef4444;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:12px;box-sizing:border-box;">
+        <button onclick="accountDelete()" style="background:#ef4444;color:white;border:none;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">Delete My Account</button>
+        <div id="deleteMsg" style="margin-top:10px;font-size:13px;"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="tool-page hidden" id="adminPage">
     <div style="max-width:1200px;margin:0 auto;padding:20px;">
       <h2 style="color:#dfff00;margin-bottom:24px;font-size:28px;">🔒 Admin Dashboard</h2>
@@ -934,6 +968,7 @@ else if (currentTool === 'calculators') showPage('calculatorsPage');
 else if (currentTool === 'documents') { showPage('documentsPage'); }
 else if (currentTool === 'business_setup') showPage('businessSetupPage');
 else if (currentTool === 'admin') { showPage('adminPage'); }
+else if (currentTool === 'account') { showPage('accountPage'); }
 else showPage('chatPage');
 
 let isLoggedIn = false;
@@ -952,6 +987,7 @@ function checkAuth() {
       document.getElementById('userEmail').textContent = data.email;
       if (data.country) document.getElementById('userCountryBadge').textContent = '🌍 ' + data.country;
       if (data.role) document.getElementById('userRoleBadge').textContent = 'Role: ' + data.role;
+      document.getElementById('myAccountBtn').style.display = 'block';
       if (data.role === 'admin') {
         document.getElementById('adminLink').style.display = 'block';
         document.getElementById('postUpdateBtn').classList.remove('hidden');
@@ -1958,6 +1994,44 @@ function togglePremium(userId, currentPremium) {
     if (data.error) alert('Error: ' + data.error);
     else loadAdminUsersDetailed();
   });
+}
+
+function accountChangeCountry() {
+  const country = document.getElementById('accountCountry').value;
+  const msg = document.getElementById('countryMsg');
+  fetch('/api/account/change-country', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, credentials: 'include',
+    body: JSON.stringify({country})
+  }).then(r => r.json()).then(data => {
+    if (data.error) { msg.style.color='#f87171'; msg.textContent = data.error; }
+    else { msg.style.color='#4ade80'; msg.textContent = 'Country updated to ' + data.country; document.getElementById('userCountryBadge').textContent = data.country; }
+  }).catch(() => { msg.style.color='#f87171'; msg.textContent = 'Network error'; });
+}
+function accountChangePassword() {
+  const current = document.getElementById('accCurrentPwd').value;
+  const newPwd = document.getElementById('accNewPwd').value;
+  const confirm = document.getElementById('accConfirmPwd').value;
+  const msg = document.getElementById('passwordMsg');
+  if (newPwd !== confirm) { msg.style.color='#f87171'; msg.textContent = 'New passwords do not match'; return; }
+  fetch('/api/account/change-password', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, credentials: 'include',
+    body: JSON.stringify({current_password: current, new_password: newPwd})
+  }).then(r => r.json()).then(data => {
+    if (data.error) { msg.style.color='#f87171'; msg.textContent = data.error; }
+    else { msg.style.color='#4ade80'; msg.textContent = 'Password changed successfully'; document.getElementById('accCurrentPwd').value=''; document.getElementById('accNewPwd').value=''; document.getElementById('accConfirmPwd').value=''; }
+  }).catch(() => { msg.style.color='#f87171'; msg.textContent = 'Network error'; });
+}
+function accountDelete() {
+  const pwd = document.getElementById('accDeletePwd').value;
+  const msg = document.getElementById('deleteMsg');
+  if (!confirm('Are you sure you want to permanently delete your account? This cannot be undone.')) return;
+  fetch('/api/account/delete', {
+    method: 'DELETE', headers: {'Content-Type':'application/json'}, credentials: 'include',
+    body: JSON.stringify({password: pwd})
+  }).then(r => r.json()).then(data => {
+    if (data.error) { msg.style.color='#f87171'; msg.textContent = data.error; }
+    else { alert('Your account has been deleted.'); window.location.href = '/'; }
+  }).catch(() => { msg.style.color='#f87171'; msg.textContent = 'Network error'; });
 }
 </script>
 </body>

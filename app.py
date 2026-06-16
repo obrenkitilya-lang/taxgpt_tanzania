@@ -482,6 +482,58 @@ def api_logout():
     logout_user()
     return jsonify({"message": "Logged out successfully"})
 
+@app.route("/api/account/change-password", methods=["POST"])
+@login_required
+def change_password():
+    try:
+        data = request.get_json()
+        current_password = data.get("current_password", "")
+        new_password = data.get("new_password", "")
+        if not current_password or not new_password:
+            return jsonify({"error": "Both current and new password are required"}), 400
+        if len(new_password) < 6:
+            return jsonify({"error": "New password must be at least 6 characters"}), 400
+        if not check_password_hash(current_user.password, current_password):
+            return jsonify({"error": "Current password is incorrect"}), 401
+        current_user.password = generate_password_hash(new_password)
+        db.session.commit()
+        return jsonify({"message": "Password changed successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/account/change-country", methods=["POST"])
+@login_required
+def change_country():
+    try:
+        data = request.get_json()
+        country = data.get("country", "").strip()
+        if country not in ["Tanzania", "Kenya", "Uganda"]:
+            return jsonify({"error": "Country must be Tanzania, Kenya, or Uganda"}), 400
+        current_user.country = country
+        db.session.commit()
+        return jsonify({"message": "Country updated successfully", "country": country})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/account/delete", methods=["DELETE"])
+@login_required
+def delete_account():
+    try:
+        data = request.get_json() or {}
+        password = data.get("password", "")
+        if not check_password_hash(current_user.password, password):
+            return jsonify({"error": "Incorrect password"}), 401
+        user_id = current_user.id
+        logout_user()
+        user = User.query.get(user_id)
+        if user:
+            db.session.delete(user)
+            db.session.commit()
+        return jsonify({"message": "Account deleted successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/')
 def home():
     return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend', 'index_fixed.html'))
@@ -492,7 +544,7 @@ def admin_page():
 
 @app.route('/<tool>')
 def tool_page(tool):
-    valid_tools = ['tax_updates', 'documents', 'calculators', 'deadlines', 'business_setup', 'tax_research']
+    valid_tools = ['tax_updates', 'documents', 'calculators', 'deadlines', 'business_setup', 'tax_research', 'account']
     if tool in valid_tools:
         return send_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend', 'index_fixed.html'))
     return "Tool not found", 404
