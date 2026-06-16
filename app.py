@@ -197,7 +197,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 _ANTI_HALLUCINATION = """
 CRITICAL RULES:
-1. ONLY answer questions about tax, finance, business registration, or legal compliance in Tanzania, Kenya, or Uganda. Decline anything outside this scope.
+1. ONLY answer questions about tax, finance, business registration, legal compliance, or tax authorities (TRA, KRA, URA) and their officials/services in Tanzania, Kenya, or Uganda. Decline anything completely unrelated to tax or East Africa.
 2. If NOT certain of a specific figure (rate, threshold, deadline, penalty), say "I am not certain - please verify with TRA" rather than guessing.
 3. Never invent law references or section numbers. Only cite laws you are confident exist.
 4. If official reference documents are provided, prioritise them over general knowledge.
