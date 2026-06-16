@@ -11,6 +11,8 @@ import PyPDF2
 import json
 from datetime import datetime, timedelta
 import re
+import urllib.request
+import urllib.parse
 
 load_dotenv()
 
@@ -285,6 +287,55 @@ def check_guest_limit(activity_type, limit):
         print("Guest limit check error: " + str(e))
         return True, None
 
+
+def web_search(query, max_results=4):
+    """Search the web using Tavily API for live tax information."""
+    api_key = os.getenv("TAVILY_API_KEY")
+    if not api_key:
+        return ""
+    try:
+        import json as _json
+        data = _json.dumps({
+            "api_key": api_key,
+            "query": query,
+            "search_depth": "basic",
+            "max_results": max_results,
+            "include_domains": [],
+            "exclude_domains": []
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            "https://api.tavily.com/search",
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            result = _json.loads(resp.read().decode('utf-8'))
+        results = result.get("results", [])
+        if not results:
+            return ""
+        parts = []
+        for r in results[:max_results]:
+            title = r.get("title", "")
+            url = r.get("url", "")
+            content_snippet = r.get("content", "")[:600]
+            parts.append(f"SOURCE: {title}\nURL: {url}\nCONTENT: {content_snippet}\n")
+        return "\n---\n".join(parts)
+    except Exception as e:
+        print("Web search error:", str(e))
+        return ""
+
+LIVE_SEARCH_TRIGGERS = [
+    "current", "latest", "today", "now", "recent", "2024", "2025", "2026",
+    "who is", "who are", "commissioner", "minister", "director", "ceo", "chairman",
+    "new law", "new regulation", "amendment", "budget", "announced", "just",
+    "this year", "this month", "last month", "breaking", "update"
+]
+
+def needs_web_search(question):
+    q = question.lower()
+    return any(trigger in q for trigger in LIVE_SEARCH_TRIGGERS)
+
 def search_training_docs(query, jurisdiction="Tanzania", max_results=3):
     try:
         docs = TrainingDocument.query.filter(TrainingDocument.jurisdiction == jurisdiction).all()
@@ -349,10 +400,18 @@ def search_training_docs(query, jurisdiction="Tanzania", max_results=3):
         return ""
 
 def build_rag_prompt(question, tool="tax_research", jurisdiction="Tanzania"):
-    context = search_training_docs(question, jurisdiction)
+    doc_context = search_training_docs(question, jurisdiction)
+    web_context = ""
+    if needs_web_search(question):
+        web_context = web_search(question + " Tanzania tax " + jurisdiction)
     base_prompt = TOOL_PROMPTS.get(tool, TOOL_PROMPTS["tax_research"])
-    if context:
-        return base_prompt + "\n\nIMPORTANT INSTRUCTIONS:\nYou have access to the following official Tanzanian tax documents. Use them as PRIMARY reference when answering. If the documents contain relevant information, cite the specific document name and section.\n\nOFFICIAL REFERENCE DOCUMENTS:\n" + context + "\n\nANSWER GUIDELINES:\n1. If the reference documents contain relevant information, use it and cite the document name\n2. Be specific about sections, articles, or provisions from the documents\n3. If the documents don't fully cover the question, use your general knowledge but note that specific details may need verification\n4. Always provide accurate, up-to-date Tanzanian tax information\n5. Cite specific document names when possible\n\nUser question: " + question
+    extra = ""
+    if doc_context:
+        extra += "\n\nOFFICIAL UPLOADED DOCUMENTS (use as primary source):\n" + doc_context
+    if web_context:
+        extra += "\n\nLIVE WEB SEARCH RESULTS (current information from the web):\n" + web_context + "\nWhen using web results, cite the source URL."
+    if extra:
+        return base_prompt + extra + "\n\nUser question: " + question
     else:
         return base_prompt + "\n\nUser question: " + question
 
