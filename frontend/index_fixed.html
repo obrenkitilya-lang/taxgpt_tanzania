@@ -293,6 +293,22 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
 .tra-btn-amber:hover{background:#1a1200;border-color:#f59e0b}
 .tra-btn-red{color:#ef4444;border-color:#3a0000}
 .tra-btn-red:hover{background:#1a0000;border-color:#ef4444}
+
+.sidebar-bottom{border-top:1px solid #161f3a;position:relative}
+.user-menu-trigger{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;transition:background 0.15s}
+.user-menu-trigger:hover{background:#111c44}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:#dfff00;color:#0a0f00;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.user-menu-info{flex:1;min-width:0}
+.user-email{font-size:13px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-plan-badge{font-size:11px;font-weight:600;color:#64748b;margin-top:1px}
+.user-plan-badge.premium{color:#dfff00}
+.user-menu-dropdown{position:absolute;bottom:100%;left:8px;right:8px;background:#0c1635;border:1px solid #1e293b;border-radius:12px;padding:8px;box-shadow:0 -8px 32px rgba(0,0,0,0.4);z-index:100}
+.user-menu-header{padding:6px 8px 10px;border-bottom:1px solid #161f3a;margin-bottom:6px}
+.user-menu-item{display:block;width:100%;text-align:left;padding:9px 10px;border-radius:8px;font-size:14px;color:#94a3b8;font-weight:500;cursor:pointer;background:none;border:none;font-family:inherit;text-decoration:none;transition:background 0.15s,color 0.15s}
+.user-menu-item:hover{background:#161f3a;color:#e2e8f0}
+.user-menu-divider{height:1px;background:#161f3a;margin:6px 0}
+.user-menu-logout{color:#f87171 !important}
+.user-menu-logout:hover{background:#450a0a !important}
 </style>
 <base target="_blank">
 </head>
@@ -304,24 +320,7 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
     <button class="new-chat" onclick="newChat()">+ New Chat</button>
   </div>
 
-  <div class="auth-section" id="authSection">
-    <div id="guestAuth">
-      <a href="/login" class="auth-btn auth-btn-primary">Login</a>
-      <a href="/signup" class="auth-btn">Sign Up</a>
-    </div>
-    <div id="userAuth" style="display:none;">
-      <div class="user-info">
-        <div class="user-email" id="userEmail"></div>
-        <div class="user-badge" id="userCountryBadge" style="color:#dfff00;font-size:10px;margin-top:2px;"></div>
-        <div class="user-badge" id="userRoleBadge" style="color:#94a3b8;font-size:10px;margin-top:2px;"></div>
-      </div>
-      <a href="/admin" class="auth-btn" id="adminLink" style="display:none;margin-bottom:8px;">🔒 Admin Panel</a>
-      <button class="auth-btn" id="myAccountBtn" onclick="window.location.href='/account'" style="display:none;margin-bottom:8px;">⚙️ My Account</button>
-      <button class="auth-btn" onclick="logout()" style="border-color:#ef4444;color:#ef4444;">Logout</button>
-    </div>
-  </div>
-
-  <div class="tools-section">
+    <div class="tools-section">
     <div class="tools-title">Tools</div>
     <div class="tool-item" id="tool-tax_updates" onclick="window.location.href='/tax_updates'" style="cursor:pointer;">📰 Tax Updates</div>
     <div class="tool-item" id="tool-documents" onclick="window.location.href='/documents'" style="cursor:pointer;">📄 Documents</div>
@@ -336,7 +335,33 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
     <div class="chat-history" id="chatHistory"></div>
   </div>
 
-  <div class="sidebar-footer">TaxGPT Tanzania v2.0</div>
+  <div class="sidebar-bottom" id="sidebarBottom">
+    <div id="guestAuth" style="padding:12px 14px;display:flex;gap:8px;flex-direction:column;">
+      <a href="/login" class="auth-btn auth-btn-primary" style="margin-bottom:0;">Login</a>
+      <a href="/signup" class="auth-btn" style="margin-bottom:0;">Sign Up</a>
+    </div>
+    <div id="userAuth" style="display:none;">
+      <div class="user-menu-trigger" id="userMenuTrigger" onclick="toggleUserMenu()">
+        <div class="user-avatar" id="userAvatar">O</div>
+        <div class="user-menu-info">
+          <div class="user-email" id="userEmail">user@email.com</div>
+          <div class="user-plan-badge" id="userPlanBadge">Free</div>
+        </div>
+        <svg id="userMenuChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#64748b;flex-shrink:0;transition:transform 0.2s;"><polyline points="18 15 12 9 6 15"></polyline></svg>
+      </div>
+      <div class="user-menu-dropdown" id="userMenuDropdown" style="display:none;">
+        <div class="user-menu-header">
+          <div style="font-size:12px;color:#64748b;font-weight:500;padding:4px 0 6px;" id="userMenuEmail"></div>
+          <div id="userCountryBadge" style="font-size:11px;color:#dfff00;margin-bottom:2px;"></div>
+          <div id="userRoleBadge" style="font-size:11px;color:#64748b;"></div>
+        </div>
+        <a href="/account" class="user-menu-item">⚙️ My Account</a>
+        <a href="/admin" class="user-menu-item" id="adminLink" style="display:none;">🔒 Admin Panel</a>
+        <div class="user-menu-divider"></div>
+        <button class="user-menu-item user-menu-logout" onclick="logout()">↪ Log out</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="main">
@@ -998,7 +1023,6 @@ function checkAuth() {
       document.getElementById('userEmail').textContent = data.email;
       if (data.country) document.getElementById('userCountryBadge').textContent = '🌍 ' + data.country;
       if (data.role) document.getElementById('userRoleBadge').textContent = 'Role: ' + data.role;
-      document.getElementById('myAccountBtn').style.display = 'block';
       if (data.role === 'admin') {
         document.getElementById('adminLink').style.display = 'block';
         document.getElementById('postUpdateBtn').classList.remove('hidden');
@@ -2044,6 +2068,23 @@ function accountDelete() {
     else { alert('Your account has been deleted.'); window.location.href = '/'; }
   }).catch(() => { msg.style.color='#f87171'; msg.textContent = 'Network error'; });
 }
+
+function toggleUserMenu() {
+  const dropdown = document.getElementById('userMenuDropdown');
+  const chevron = document.getElementById('userMenuChevron');
+  const isOpen = dropdown.style.display !== 'none';
+  dropdown.style.display = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+document.addEventListener('click', function(e) {
+  const trigger = document.getElementById('userMenuTrigger');
+  const dropdown = document.getElementById('userMenuDropdown');
+  if (dropdown && trigger && !trigger.contains(e.target) && !dropdown.contains(e.target)) {
+    dropdown.style.display = 'none';
+    const chevron = document.getElementById('userMenuChevron');
+    if (chevron) chevron.style.transform = '';
+  }
+});
 </script>
 </body>
 </html>

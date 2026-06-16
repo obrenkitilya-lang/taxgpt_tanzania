@@ -431,7 +431,7 @@ def seed_sample_news():
 @app.route("/api/auth/me", methods=["GET"])
 def get_current_user():
     if current_user.is_authenticated:
-        return jsonify({"logged_in": True, "email": current_user.email, "country": current_user.country, "role": current_user.role, "is_guest": current_user.is_guest})
+        return jsonify({"logged_in": True, "email": current_user.email, "country": current_user.country, "role": current_user.role, "is_guest": current_user.is_guest, "is_premium": getattr(current_user, "is_premium", False)})
     return jsonify({"logged_in": False})
 
 @app.route("/api/auth/signup", methods=["POST"])
