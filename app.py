@@ -1476,6 +1476,9 @@ def migrate_db():
                 if 'session_id' not in columns:
                     db.session.execute(db.text("ALTER TABLE document ADD COLUMN IF NOT EXISTS session_id INTEGER"))
                     db.session.commit()
+                if 'is_premium' not in columns:
+                    db.session.execute(db.text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS is_premium BOOLEAN DEFAULT FALSE'))
+                    db.session.commit()
             db.create_all()
             seed_comparison_data()
             seed_deadlines()
