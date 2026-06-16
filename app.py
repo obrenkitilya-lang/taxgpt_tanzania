@@ -36,6 +36,7 @@ class User(db.Model, UserMixin):
     role = db.Column(db.String(20), default='user')
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     is_guest = db.Column(db.Boolean, default=False)
+    is_premium = db.Column(db.Boolean, default=False)
     sessions = db.relationship('ChatSession', backref='user', lazy=True, cascade='all, delete-orphan')
     documents = db.relationship('Document', backref='user', lazy=True, cascade='all, delete-orphan')
 
@@ -1317,6 +1318,133 @@ def update_lead_status(lead_id):
         return jsonify({"message": "Status updated", "lead": lead.to_dict()})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+class DraftedResponse(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=True)
+    response_type = db.Column(db.String(100), nullable=False)
+    document_name = db.Column(db.String(300), nullable=True)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    def to_dict(self):
+        return {'id': self.id, 'response_type': self.response_type, 'document_name': self.document_name, 'content': self.content, 'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None}
+
+# ========================
+# TRA RESPONSE DRAFTER APIs
+# ========================
+
+RESPONSE_PROMPTS = {
+    'demand_notice': 'Draft a formal response to a TRA Demand Notice. The response should: acknowledge receipt, dispute or clarify the amounts if applicable, reference relevant sections of the Income Tax Act or VAT Act Cap 148, request supporting schedules, and propose a payment plan if appropriate. Use formal legal language suitable for submission to TRA Tanzania.',
+    'tax_examination': 'Draft a formal response to a TRA Tax Examination Notice. The response should: acknowledge the examination notice, confirm availability for examination, list documents to be provided, reference taxpayer rights under the Tax Administration Act, and request reasonable timeframes.',
+    'tax_audit': 'Draft a formal response to a TRA Tax Audit Notice. The response should: acknowledge the audit, confirm cooperation, list documents being provided, raise any procedural objections if applicable, and reference the Tax Administration Act Cap 438.',
+    'vat_verification': 'Draft a formal response to a TRA VAT Verification Notice. The response should: acknowledge the verification, provide explanations for any VAT discrepancies, reference the VAT Act Cap 148, and attach relevant supporting schedules.',
+    'tax_investigation': 'Draft a formal response to a TRA Tax Investigation Notice. The response should: acknowledge the investigation, assert taxpayer rights, request disclosure of specific allegations, and reference the Tax Administration Act Cap 438.',
+    'objection': 'Draft a formal Objection to TRA assessment. The objection must: be filed within 30 days, reference the specific assessment, state grounds of objection with reference to specific tax laws, include supporting facts and calculations, and comply with Section 51 of the Tax Administration Act Cap 438.',
+    'notice_of_appeal': 'Draft a formal Notice of Intention to Appeal to the Tax Revenue Appeals Board (TRAB). The notice should: reference the TRA objection decision, state grounds for appeal, reference Section 16 of the Tax Revenue Appeals Act Cap 408, and be filed within 30 days of the objection decision.',
+    'trab_appeal': 'Draft a formal Appeal Statement to the Tax Revenue Appeals Board (TRAB). The statement should: include statement of facts, grounds of appeal referencing specific tax laws, relief sought, reference the Tax Revenue Appeals Act Cap 408, and follow TRAB procedural rules.',
+    'trat_appeal': 'Draft a formal Appeal Statement to the Tax Revenue Appeals Tribunal (TRAT). The statement should: reference the TRAB decision, state grounds of appeal on points of law, reference Section 25 of the Tax Revenue Appeals Act Cap 408, and follow formal tribunal drafting standards.',
+    'high_court_appeal': 'Draft a formal Appeal Statement to the High Court of Tanzania (Commercial Division). The statement should: reference the TRAT decision, limit grounds to questions of law, follow High Court Civil Procedure Rules, reference the Tax Revenue Appeals Act Cap 408 and relevant precedents, and use formal court pleading style.'
+}
+
+RESPONSE_LABELS = {
+    'demand_notice': 'Response to Demand Notice',
+    'tax_examination': 'Response to Tax Examination Notice',
+    'tax_audit': 'Response to Tax Audit Notice',
+    'vat_verification': 'Response to VAT Verification',
+    'tax_investigation': 'Response to Tax Investigation',
+    'objection': 'Draft Objection to TRA',
+    'notice_of_appeal': 'Notice of Intention to Appeal',
+    'trab_appeal': 'Appeal Statement to TRAB',
+    'trat_appeal': 'Appeal Statement to TRAT',
+    'high_court_appeal': 'Appeal Statement to High Court'
+}
+
+@app.route("/api/documents/<int:doc_id>/draft-response", methods=["POST"])
+@login_required
+def draft_tra_response(doc_id):
+    try:
+        doc = Document.query.get_or_404(doc_id)
+        if doc.user_id != current_user.id and current_user.role != 'admin':
+            return jsonify({"error": "Access denied"}), 403
+        data = request.get_json()
+        response_type = data.get("response_type", "").strip()
+        if response_type not in RESPONSE_PROMPTS:
+            return jsonify({"error": "Invalid response type"}), 400
+        doc_text = ""
+        try:
+            import PyPDF2, io
+            file_data = doc.file_data
+            if doc.filename.lower().endswith('.pdf'):
+                reader = PyPDF2.PdfReader(io.BytesIO(file_data))
+                doc_text = " ".join(page.extract_text() or "" for page in reader.pages)
+            else:
+                doc_text = file_data.decode('utf-8', errors='ignore')
+            doc_text = doc_text[:6000]
+        except Exception:
+            doc_text = "[Document content could not be extracted - draft based on response type only]"
+        system_prompt = """You are an expert Tanzanian tax lawyer and advocate with deep knowledge of:
+- Income Tax Act Cap 332
+- Value Added Tax Act Cap 148  
+- Tax Administration Act Cap 438
+- Tax Revenue Appeals Act Cap 408
+- Tanzania Revenue Authority Act Cap 399
+Draft formal, professional legal documents suitable for submission to TRA or Tanzanian courts/tribunals.
+Always include: proper headings, date placeholders [DATE], reference numbers [REF NO], taxpayer details [TAXPAYER NAME/TIN], and signature blocks."""
+        user_prompt = f"""Based on this TRA notice/document:
+
+{doc_text}
+
+{RESPONSE_PROMPTS[response_type]}
+
+Draft the complete formal document now. Use [PLACEHOLDER] format for information that needs to be filled in by the client."""
+        client = openai.OpenAI(api_key=app.config["OPENAI_API_KEY"])
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            max_tokens=2000,
+            temperature=0.3
+        )
+        draft_content = response.choices[0].message.content
+        saved = False
+        draft_id = None
+        if current_user.is_premium:
+            draft = DraftedResponse(user_id=current_user.id, document_id=doc_id, response_type=RESPONSE_LABELS[response_type], document_name=doc.filename, content=draft_content)
+            db.session.add(draft)
+            db.session.commit()
+            saved = True
+            draft_id = draft.id
+        return jsonify({"draft": draft_content, "response_type": RESPONSE_LABELS[response_type], "saved": saved, "draft_id": draft_id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/my-drafts", methods=["GET"])
+@login_required
+def get_my_drafts():
+    if not current_user.is_premium:
+        return jsonify({"error": "Premium feature. Upgrade to save and retrieve drafts."}), 403
+    drafts = DraftedResponse.query.filter_by(user_id=current_user.id).order_by(DraftedResponse.created_at.desc()).all()
+    return jsonify([d.to_dict() for d in drafts])
+
+@app.route("/api/my-drafts/<int:draft_id>", methods=["DELETE"])
+@login_required
+def delete_draft(draft_id):
+    draft = DraftedResponse.query.get_or_404(draft_id)
+    if draft.user_id != current_user.id and current_user.role != 'admin':
+        return jsonify({"error": "Access denied"}), 403
+    db.session.delete(draft)
+    db.session.commit()
+    return jsonify({"message": "Draft deleted"})
+
+@app.route("/api/admin/users/<int:user_id>/premium", methods=["PUT"])
+@admin_required
+def toggle_premium(user_id):
+    user = User.query.get_or_404(user_id)
+    data = request.get_json()
+    user.is_premium = data.get("is_premium", False)
+    db.session.commit()
+    return jsonify({"message": "Updated", "is_premium": user.is_premium})
 
 
 def migrate_db():
