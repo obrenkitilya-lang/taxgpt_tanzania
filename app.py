@@ -1399,7 +1399,6 @@ Always include: proper headings, date placeholders [DATE], reference numbers [RE
 {RESPONSE_PROMPTS[response_type]}
 
 Draft the complete formal document now. Use [PLACEHOLDER] format for information that needs to be filled in by the client."""
-        client = openai.OpenAI(api_key=app.config["OPENAI_API_KEY"])
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
