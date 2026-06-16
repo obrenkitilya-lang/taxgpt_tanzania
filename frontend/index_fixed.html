@@ -336,7 +336,7 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
   </div>
 
   <div class="sidebar-bottom" id="sidebarBottom">
-    <div id="guestAuth" style="padding:12px 14px;display:flex;gap:8px;flex-direction:column;">
+    <div id="guestAuth" style="padding:12px 14px;display:none;flex-direction:column;gap:8px;">
       <a href="/login" class="auth-btn auth-btn-primary" style="margin-bottom:0;">Login</a>
       <a href="/signup" class="auth-btn" style="margin-bottom:0;">Sign Up</a>
     </div>
@@ -1035,7 +1035,7 @@ function checkAuth() {
       }
     } else {
       isLoggedIn = false;
-      document.getElementById('guestAuth').style.display = 'block';
+      document.getElementById('guestAuth').style.display = 'flex';
       document.getElementById('userAuth').style.display = 'none';
       if (currentTool === 'admin') window.location.href = '/login';
     }
