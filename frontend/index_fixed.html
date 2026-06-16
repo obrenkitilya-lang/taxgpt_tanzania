@@ -5,80 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TaxGPT Tanzania</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
-// ===== BUSINESS SETUP =====
-
-const bizInfo = {
-  'Limited Company': '<b>Overview:</b><br>Most common structure in Tanzania. Shareholders have limited liability — personal assets are protected.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Minimum 2 shareholders, 1 director</li><li>Registered with BRELA</li><li>Corporate income tax: 30%</li><li>VAT if turnover exceeds TZS 100M/year</li><li>Annual returns to BRELA and TRA</li></ul><br><span style="color:#64748b;font-style:italic;">Full process and costs available upon consultation.</span>',
-  'Branch of Foreign Company': '<b>Overview:</b><br>Allows a foreign company to operate in Tanzania without a separate local entity.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Parent must be registered abroad</li><li>Register with BRELA as a foreign branch</li><li>May require TIC permit</li><li>Taxed on Tanzania-sourced income</li><li>Work permits needed for foreign staff</li></ul><br><span style="color:#64748b;font-style:italic;">Full process and immigration details upon consultation.</span>',
-  'NGO': '<b>Overview:</b><br>For social, charitable or development purposes, regulated under the NGO Act.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Registered with the NGO Coordination Board</li><li>Constitution and board of trustees (min. 5) required</li><li>Annual reporting and renewal</li><li>Tax exemptions via TRA</li><li>Cannot distribute profits to members</li></ul><br><span style="color:#64748b;font-style:italic;">Full process and compliance details upon consultation.</span>',
-  'Sole Trader': '<b>Overview:</b><br>Simplest structure — one person owns everything but is personally liable for all debts.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Business name registered with BRELA</li><li>No separation of personal and business assets</li><li>Income taxed at individual rates (up to 30%)</li><li>Requires local authority business licence</li><li>VAT if turnover exceeds TZS 100M/year</li></ul><br><span style="color:#64748b;font-style:italic;">Full steps and sector licences upon consultation.</span>',
-  'Partnership': '<b>Overview:</b><br>2 to 20 people sharing management and profits, all jointly liable.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>2 to 20 partners</li><li>Registered with BRELA under Business Names Act</li><li>Written Partnership Agreement strongly recommended</li><li>Partners personally liable for debts</li><li>Profits taxed at each partner individual rate</li></ul><br><span style="color:#64748b;font-style:italic;">Full process and deed templates upon consultation.</span>'
-};
-
-function selectBizType(type) {
-  document.getElementById('leadBizType').value = type;
-  document.getElementById('bizTypeName').textContent = type;
-  document.getElementById('bizInfoContent').innerHTML = bizInfo[type] || '';
-  document.getElementById('bizStep1').style.display = 'none';
-  document.getElementById('bizStep2').style.display = 'block';
-  document.getElementById('leadMsg').innerHTML = '';
-  document.getElementById('bizAiMessages').innerHTML = '';
-}
-
-async function askBizAI() {
-  const input = document.getElementById('bizAiInput');
-  const q = input.value.trim();
-  if (!q) return;
-  const bizType = document.getElementById('leadBizType').value;
-  const msgs = document.getElementById('bizAiMessages');
-  const userBubble = document.createElement('div');
-  userBubble.style.cssText = 'background:#1e293b;border-radius:10px;padding:10px 14px;align-self:flex-end;color:white;max-width:80%;font-size:14px;';
-  userBubble.textContent = q;
-  msgs.appendChild(userBubble);
-  const typing = document.createElement('div');
-  typing.style.cssText = 'color:#94a3b8;font-size:13px;font-style:italic;';
-  typing.textContent = 'Thinking...';
-  msgs.appendChild(typing);
-  msgs.scrollTop = msgs.scrollHeight;
-  input.value = '';
-  try {
-    const res = await fetch('/api/chat', {method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({message:'Regarding setting up a '+bizType+' in Tanzania: '+q,session_id:'biz_'+Date.now()})});
-    const data = await res.json();
-    typing.remove();
-    const aiBubble = document.createElement('div');
-    aiBubble.style.cssText = 'background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:10px 14px;color:#cbd5e1;max-width:90%;font-size:14px;line-height:1.6;';
-    aiBubble.innerHTML = (data.response || data.error || 'No response').replace(/\n/g,'<br>');
-    msgs.appendChild(aiBubble);
-    msgs.scrollTop = msgs.scrollHeight;
-  } catch(e) {
-    typing.remove();
-    const errDiv = document.createElement('div');
-    errDiv.style.color = '#f87171';
-    errDiv.textContent = 'Error: ' + e.message;
-    msgs.appendChild(errDiv);
-  }
-}
-
-async function submitBusinessLead() {
-  const name = document.getElementById('leadName').value.trim();
-  const email = document.getElementById('leadEmail').value.trim();
-  const phone = document.getElementById('leadPhone').value.trim();
-  const country = document.getElementById('leadCountry').value.trim();
-  const btype = document.getElementById('leadBizType').value;
-  const desc = document.getElementById('leadDesc').value.trim();
-  const msgEl = document.getElementById('leadMsg');
-  if (!name || !email || !phone) { msgEl.innerHTML = '<span style="color:#f87171;">Please fill in Name, Email and Phone.</span>'; return; }
-  msgEl.innerHTML = '<span style="color:#94a3b8;">Submitting...</span>';
-  try {
-    const res = await fetch('/api/business-leads',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({name,email,phone,country,business_type:btype,business_description:desc})});
-    const data = await res.json();
-    if (res.ok) {
-      msgEl.innerHTML = '<span style="color:#4ade80;font-size:15px;font-weight:600;">&#10003; '+data.message+'</span>';
-      ['leadName','leadEmail','leadPhone','leadCountry','leadDesc'].forEach(id=>document.getElementById(id).value='');
-    } else { msgEl.innerHTML = '<span style="color:#f87171;">'+(data.error||'Submission failed')+'</span>'; }
-  } catch(e) { msgEl.innerHTML = '<span style="color:#f87171;">Network error. Please try again.</span>'; }
-}
-
 </script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
@@ -2085,6 +2011,66 @@ document.addEventListener('click', function(e) {
     if (chevron) chevron.style.transform = '';
   }
 });
+
+const bizInfo = {
+  'Limited Company': '<b>Overview:</b><br>A Limited Company (Ltd) is the most common business structure in Tanzania.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Minimum 2 shareholders, 1 director</li><li>Registered with BRELA</li><li>Corporate income tax: 30%</li><li>VAT registration required if turnover exceeds TZS 100M/year</li></ul>',
+  'Branch of Foreign Company': '<b>Overview:</b><br>A branch allows a foreign company to operate in Tanzania without forming a separate local entity.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Parent company must be registered abroad</li><li>Register with BRELA as a foreign company branch</li><li>Subject to Tanzanian tax on Tanzania-sourced income</li></ul>',
+  'NGO': '<b>Overview:</b><br>NGOs in Tanzania are regulated under the Non-Governmental Organizations Act.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Registered with the NGO Coordination Board</li><li>Must have a constitution and board of trustees (min. 5 members)</li><li>Tax exemptions available — must apply separately to TRA</li></ul>',
+  'Sole Trader': '<b>Overview:</b><br>The simplest business structure — one person owns and runs the business.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>Registered as a business name with BRELA</li><li>Income taxed at individual rates (up to 30%)</li><li>Must register for TIN with TRA</li></ul>',
+  'Partnership': '<b>Overview:</b><br>A partnership is formed when 2–20 people carry on business together.<br><br><b>Key facts:</b><ul style="margin:8px 0 0 18px;color:#cbd5e1;"><li>2–20 partners allowed</li><li>Registered with BRELA</li><li>Partners are jointly and personally liable for debts</li></ul>'
+};
+function selectBizType(type) {
+  document.getElementById('leadBizType').value = type;
+  document.getElementById('bizTypeName').textContent = type;
+  document.getElementById('bizInfoContent').innerHTML = bizInfo[type] || '';
+  document.getElementById('bizStep1').style.display = 'none';
+  document.getElementById('bizStep2').style.display = 'block';
+  document.getElementById('leadMsg').innerHTML = '';
+  document.getElementById('bizAiMessages').innerHTML = '';
+}
+async function askBizAI() {
+  const input = document.getElementById('bizAiInput');
+  const q = input.value.trim();
+  if (!q) return;
+  const bizType = document.getElementById('leadBizType').value;
+  const msgs = document.getElementById('bizAiMessages');
+  const userBubble = document.createElement('div');
+  userBubble.style.cssText = 'background:#1e293b;border-radius:10px;padding:10px 14px;align-self:flex-end;color:white;max-width:80%;font-size:14px;';
+  userBubble.textContent = q;
+  msgs.appendChild(userBubble);
+  const typing = document.createElement('div');
+  typing.style.cssText = 'color:#94a3b8;font-size:13px;font-style:italic;';
+  typing.textContent = 'Thinking...';
+  msgs.appendChild(typing);
+  msgs.scrollTop = msgs.scrollHeight;
+  input.value = '';
+  try {
+    const res = await fetch('/api/chat', {method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({message:'Regarding setting up a '+bizType+' in Tanzania: '+q,session_id:'biz_'+Date.now()})});
+    const data = await res.json();
+    typing.remove();
+    const aiBubble = document.createElement('div');
+    aiBubble.style.cssText = 'background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:10px 14px;color:#cbd5e1;max-width:90%;font-size:14px;line-height:1.6;';
+    aiBubble.innerHTML = (data.response||data.error||'No response').replace(/\n/g,'<br>');
+    msgs.appendChild(aiBubble);
+    msgs.scrollTop = msgs.scrollHeight;
+  } catch(e) { typing.remove(); }
+}
+async function submitBusinessLead() {
+  const name = document.getElementById('leadName').value.trim();
+  const email = document.getElementById('leadEmail').value.trim();
+  const phone = document.getElementById('leadPhone').value.trim();
+  const btype = document.getElementById('leadBizType').value;
+  const desc = document.getElementById('leadDesc').value.trim();
+  const msgEl = document.getElementById('leadMsg');
+  if (!name||!email||!phone){msgEl.innerHTML='<span style="color:#f87171;">Please fill in Name, Email and Phone.</span>';return;}
+  msgEl.innerHTML='<span style="color:#94a3b8;">Submitting...</span>';
+  try {
+    const res = await fetch('/api/business-leads',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({name,email,phone,business_type:btype,business_description:desc})});
+    const data = await res.json();
+    if(data.error){msgEl.innerHTML='<span style="color:#f87171;">'+data.error+'</span>';}
+    else{msgEl.innerHTML='<span style="color:#4ade80;">Thank you! We will contact you shortly.</span>';document.getElementById('leadName').value='';document.getElementById('leadEmail').value='';document.getElementById('leadPhone').value='';document.getElementById('leadDesc').value='';}
+  } catch(e){msgEl.innerHTML='<span style="color:#f87171;">Network error.</span>';}
+}
 </script>
 </body>
 </html>
