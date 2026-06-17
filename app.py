@@ -1041,7 +1041,7 @@ def analyze_document():
         doc_content = doc.content_text[:12000] if doc.content_text else "No text content available."
         doc_prompt = "Document content:\n" + doc_content + "\n\nQuestion: " + question
         response = client.chat.completions.create(
-            model="gpt-4o-mini", 
+            model="gpt-4o", 
             messages=[
                 {"role": "system", "content": TOOL_PROMPTS["documents"]}, 
                 {"role": "user", "content": doc_prompt}
