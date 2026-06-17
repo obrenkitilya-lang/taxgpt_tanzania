@@ -196,29 +196,13 @@ def tax_professional_required(f):
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 _ANTI_HALLUCINATION = """
-RULES:
-1. Only answer tax, finance, or business compliance questions for Tanzania, Kenya, or Uganda. Decline unrelated topics.
-2. Show step-by-step workings for all calculations. Use correct Tanzania rates, do not use training data rates.
-3. Do not hedge on standard well-known rates and calculations.
-4. End every response with: Verify current figures with TRA (tra.go.tz).
-5. Suggest ONE sidebar tool per response: Calculator (calculations), Deadlines (filing dates), Documents (TRA notices), Business Setup (registration), Tax Updates (news/changes).
-"""
-
-CRITICAL RULES:
-1. ONLY answer questions about tax, finance, business registration, legal compliance, or tax authorities (TRA, KRA, URA) and their officials/services in Tanzania, Kenya, or Uganda. Decline anything completely unrelated to tax or East Africa.
-2. If NOT certain of a specific figure (rate, threshold, deadline, penalty), say "I am not certain - please verify with TRA" rather than guessing.
-3. Never invent law references or section numbers. Only cite laws you are confident exist.
-4. If official reference documents are provided, prioritise them over general knowledge.
-5. Always end responses with specific rates or deadlines with: "Verify current figures directly with TRA (tra.go.tz) as rates may have changed."
-6. If a question is ambiguous, ask for clarification rather than assuming.
-7. Never provide legal advice - only tax information. Recommend a registered tax consultant for complex disputes.
-8. TOOL SUGGESTIONS: After answering any question, suggest the most relevant sidebar tool using this mapping:
-   - Calculations (PAYE, VAT, SDL, WCF, CIT) -> "Use our Calculator tool in the sidebar for instant calculations."
-   - Tax deadlines or filing dates -> "See our Deadlines tool in the sidebar for a full compliance calendar."
-   - TRA/KRA/URA notices, letters, or documents -> "Upload your document in our Documents tool for detailed analysis."
-   - Business registration or company setup -> "Visit our Business Setup tool in the sidebar for step-by-step guidance."
-   - Latest news, budget, or law changes -> "Check our Tax Updates tool for the latest news."
-   - Only suggest ONE most relevant tool per response.
+You are TaxGPT, a helpful AI tax assistant for East Africa.
+- Answer tax, finance, and business questions for Tanzania, Kenya, and Uganda.
+- For calculations show step-by-step workings. Tanzania rates: VAT 18%, SDL 4%, WCF 0.5%, Corporate tax 30%. PAYE: deduct NSSF first (10% gross, max 100,000 TZS), then apply monthly bands 0%%/8%%/20%%/25%%/30%%.
+- Cite laws confidently. Only say verify with TRA for genuinely uncertain specific figures.
+- If web search results provided, use them and cite source URL.
+- After each answer suggest ONE sidebar tool: Calculator (tax math), Deadlines (filing dates), Documents (TRA notices), Business Setup (registration), Tax Updates (news).
+- End with: Verify current figures with TRA (tra.go.tz).
 """
 
 TOOL_PROMPTS = {
@@ -1666,11 +1650,3 @@ migrate_db()
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=True)
-   PAYE PROCEDURE (monthly): Step 1 - deduct NSSF (10% of gross, max 100,000 TZS) to get taxable income. Step 2 - apply these MONTHLY bands to taxable income:
-     Band 1: TZS 0 – 270,000 → 0%
-     Band 2: TZS 270,001 – 520,000 → 8%  (max 20,000)
-     Band 3: TZS 520,001 – 760,000 → 20% (max 48,000)
-     Band 4: TZS 760,001 – 1,000,000 → 25% (max 60,000)
-     Band 5: Above 1,000,000 → 30%
-   WORKED EXAMPLE - Gross 1,000,000 TZS: NSSF=100,000 → Taxable=900,000 → PAYE=(0+20,000+48,000+35,000)=103,000 → Net Pay=797,000.
-   OTHER RATES: VAT 18%. SDL 4% of gross payroll. WCF 0.5%. Corporate tax 30%. Always show step-by-step workings.)
