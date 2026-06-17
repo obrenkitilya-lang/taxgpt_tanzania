@@ -349,6 +349,8 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
         </div>
         <a href="/account" class="user-menu-item">⚙️ My Account</a>
         <a href="/admin" class="user-menu-item" id="adminLink" style="display:none;">🔒 Admin Panel</a>
+      <button class="auth-btn" id="myAccountBtn" onclick="showTool('account')" style="display:none;margin-bottom:8px;">⚙️ My Account</button>
+      <button class="auth-btn" onclick="logout()" style="border-color:#ef4444;color:#ef4444;display:none;" id="logoutBtn">Logout</button>
         <div class="user-menu-divider"></div>
         <button class="user-menu-item user-menu-logout" onclick="logout()">↪ Log out</button>
       </div>
@@ -1036,6 +1038,8 @@ function checkAuth() {
       userRole = data.role;
       document.getElementById('guestAuth').style.display = 'none';
       document.getElementById('userAuth').style.display = 'block';
+      document.getElementById('myAccountBtn').style.display = 'block';
+      document.getElementById('logoutBtn').style.display = 'block';
       document.getElementById('userEmail').textContent = data.email;
       if (data.country) document.getElementById('userCountryBadge').textContent = '🌍 ' + data.country;
       if (data.role) document.getElementById('userRoleBadge').textContent = 'Role: ' + data.role;
