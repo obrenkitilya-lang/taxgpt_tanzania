@@ -332,11 +332,19 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
       <a href="/login" class="auth-btn auth-btn-primary" style="margin-bottom:0;">Login</a>
       <a href="/signup" class="auth-btn" style="margin-bottom:0;">Sign Up</a>
     </div>
-    <div id="userAuth" style="display:none;padding:12px 14px;flex-direction:column;gap:8px;">
-      <div id="userEmail" style="color:#94a3b8;font-size:12px;padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-      <a href="/admin" id="adminLink" class="auth-btn" style="display:none;margin-bottom:0;">🔒 Admin Panel</a>
-      <a href="/account" class="auth-btn" style="margin-bottom:0;">⚙️ My Account</a>
-      <button onclick="logout()" class="auth-btn" style="border-color:#ef4444;color:#ef4444;margin-bottom:0;">Logout</button>
+    <div id="userAuth" style="display:none;flex-direction:column;">
+      <div onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-top:1px solid #1e293b;">
+        <div id="userAvatar" style="width:32px;height:32px;border-radius:50%;background:#dfff00;color:#000;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">O</div>
+        <div style="flex:1;overflow:hidden;">
+          <div id="userEmail" style="color:#e2e8f0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+          <div style="color:#64748b;font-size:11px;">Free</div>
+        </div>
+      </div>
+      <div id="userDropdown" style="display:none;flex-direction:column;padding:4px 8px 8px;">
+        <a href="/admin" id="adminLink" style="display:none;padding:7px 8px;color:#dfff00;font-size:13px;text-decoration:none;border-radius:6px;">🔒 Admin Panel</a>
+        <a href="javascript:void(0)" onclick="showTool('account')" style="padding:7px 8px;color:#e2e8f0;font-size:13px;text-decoration:none;border-radius:6px;">⚙️ My Account</a>
+        <button onclick="logout()" style="padding:7px 8px;color:#ef4444;font-size:13px;background:none;border:none;text-align:left;cursor:pointer;border-radius:6px;font-family:inherit;">↪ Log out</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1012,6 +1020,10 @@ let isLoggedIn = false;
 let userRole = '';
 let modalMode = 'login';
 
+function toggleUserMenu() {
+  var d=document.getElementById("userDropdown");
+  d.style.display=d.style.display==="flex"?"none":"flex";
+}
 function checkAuth() {
   fetch('/api/auth/me', { credentials: 'include' })
   .then(r => r.json())
