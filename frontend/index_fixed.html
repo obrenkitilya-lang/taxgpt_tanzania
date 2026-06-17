@@ -332,17 +332,20 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
       <a href="/login" class="auth-btn auth-btn-primary" style="margin-bottom:0;">Login</a>
       <a href="/signup" class="auth-btn" style="margin-bottom:0;">Sign Up</a>
     </div>
-    <div id="userAuth" style="display:none;flex-direction:column;">
-      <div onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-top:1px solid #1e293b;">
-        <div id="userAvatar" style="width:32px;height:32px;border-radius:50%;background:#dfff00;color:#000;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">O</div>
-        <div style="flex:1;overflow:hidden;">
-          <div id="userEmail" style="color:#e2e8f0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-          <div style="color:#64748b;font-size:11px;">Free</div>
+    <div id="userAuth" style="display:none;flex-direction:column;border-top:1px solid #1e293b;">
+      <div style="padding:10px 14px;cursor:pointer;" onclick="var d=document.getElementById('uDrop');d.style.display=d.style.display=='flex'?'none':'flex'">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:#dfff00;color:#000;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;" id="userAvatar">O</div>
+          <div style="flex:1;overflow:hidden;">
+            <div id="userEmail" style="color:#e2e8f0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+            <div style="color:#64748b;font-size:11px;">Free</div>
+          </div>
+          <span style="color:#64748b;font-size:10px;">▲</span>
         </div>
       </div>
-      <div id="userDropdown" style="display:none;flex-direction:column;padding:4px 8px 8px;">
+      <div id="uDrop" style="display:none;flex-direction:column;padding:4px 8px 8px;">
         <a href="/admin" id="adminLink" style="display:none;padding:7px 8px;color:#dfff00;font-size:13px;text-decoration:none;border-radius:6px;">🔒 Admin Panel</a>
-        <a href="javascript:void(0)" onclick="showTool('account')" style="padding:7px 8px;color:#e2e8f0;font-size:13px;text-decoration:none;border-radius:6px;">⚙️ My Account</a>
+        <a href="javascript:void(0)" onclick="showTool('account')" style="padding:7px 8px;color:#e2e8f0;font-size:13px;text-decoration:none;display:block;border-radius:6px;">⚙️ My Account</a>
         <button onclick="logout()" style="padding:7px 8px;color:#ef4444;font-size:13px;background:none;border:none;text-align:left;cursor:pointer;border-radius:6px;font-family:inherit;">↪ Log out</button>
       </div>
     </div>
