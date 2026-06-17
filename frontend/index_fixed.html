@@ -328,22 +328,33 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
   </div>
 
   <div class="sidebar-bottom" id="sidebarBottom">
-      <div id="guestAuth" style="padding:12px 14px;display:none;flex-direction:column;gap:8px;">
-        <a href="/login" class="auth-btn auth-btn-primary" style="margin-bottom:0;">Login</a>
-        <a href="/signup" class="auth-btn" style="margin-bottom:0;">Sign Up</a>
-      </div>
-      <div id="userAuth" style="display:none;padding:8px 14px;display:none;flex-direction:column;gap:6px;">
-        <div class="user-menu-item" id="userEmail" style="color:#e2e8f0;font-size:13px;padding:4px 0;"></div>
-        <div style="display:flex;gap:6px;padding:2px 0 6px;">
-          <span class="user-badge" id="userCountryBadge"></span>
-          <span class="user-badge" id="userRoleBadge"></span>
+    <div id="guestAuth" style="padding:12px 14px;display:none;flex-direction:column;gap:8px;">
+      <a href="/login" class="auth-btn auth-btn-primary" style="margin-bottom:0;">Login</a>
+      <a href="/signup" class="auth-btn" style="margin-bottom:0;">Sign Up</a>
+    </div>
+    <div id="userAuth" style="display:none;">
+      <div class="user-menu-trigger" id="userMenuTrigger" onclick="toggleUserMenu()">
+        <div class="user-avatar" id="userAvatar">O</div>
+        <div class="user-menu-info">
+          <div class="user-email" id="userEmail">user@email.com</div>
+          <div class="user-plan-badge" id="userPlanBadge">Free</div>
         </div>
+        <svg id="userMenuChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#64748b;flex-shrink:0;transition:transform 0.2s;"><polyline points="18 15 12 9 6 15"></polyline></svg>
+      </div>
+      <div class="user-menu-dropdown" id="userMenuDropdown" style="display:none;">
+        <div class="user-menu-header">
+          <div style="font-size:12px;color:#64748b;font-weight:500;padding:4px 0 6px;" id="userMenuEmail"></div>
+          <div id="userCountryBadge" style="font-size:11px;color:#dfff00;margin-bottom:2px;"></div>
+          <div id="userRoleBadge" style="font-size:11px;color:#64748b;"></div>
+        </div>
+        <a href="/account" class="user-menu-item">⚙️ My Account</a>
         <a href="/admin" class="user-menu-item" id="adminLink" style="display:none;">🔒 Admin Panel</a>
-        <button class="auth-btn" id="myAccountBtn" onclick="showTool('account')" style="display:none;margin-bottom:4px;">⚙️ My Account</button>
-        <button class="auth-btn" id="logoutBtn" onclick="logout()" style="border-color:#ef4444;color:#ef4444;display:none;">Logout</button>
+        <div class="user-menu-divider"></div>
+        <button class="user-menu-item user-menu-logout" onclick="logout()">↪ Log out</button>
       </div>
     </div>
   </div>
+</div>
 
 <div class="main">
 
@@ -1025,8 +1036,6 @@ function checkAuth() {
       userRole = data.role;
       document.getElementById('guestAuth').style.display = 'none';
       document.getElementById('userAuth').style.display = 'block';
-      document.getElementById('myAccountBtn').style.display = 'block';
-      document.getElementById('logoutBtn').style.display = 'block';
       document.getElementById('userEmail').textContent = data.email;
       if (data.country) document.getElementById('userCountryBadge').textContent = '🌍 ' + data.country;
       if (data.role) document.getElementById('userRoleBadge').textContent = 'Role: ' + data.role;
