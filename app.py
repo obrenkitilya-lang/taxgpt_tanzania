@@ -518,25 +518,9 @@ def seed_deadlines():
     print("Seeded tax deadlines")
 
 def seed_sample_news():
-    if NewsUpdate.query.first():
-        return
-    news = [
-        {'title': 'TRA Announces New E-Filing System for VAT Returns', 'content': 'Starting July 1, 2026, all VAT-registered taxpayers must file returns through the new TRA Online Portal. Key changes include auto-calculation features, mobile payment integration (M-Pesa, Tigo Pesa), and a new penalty structure for late filing. The new system aims to reduce manual errors and improve compliance tracking.', 'excerpt': 'Starting July 1, 2026, all VAT-registered taxpayers must file returns through the new TRA Online Portal.', 'category': 'tz', 'source': 'Tanzania Revenue Authority', 'source_url': 'https://tra.go.tz', 'is_pinned': True, 'is_admin_post': False},
-        {'title': 'Finance Act 2026: Key Changes for Businesses', 'content': 'New tax brackets effective July 1, 2026. Digital services tax introduced at 2%. Corporate tax rate remains 30% but new incentives for manufacturing sector. Updated PAYE thresholds for monthly income. The Act also introduces tax relief for startups in the technology sector.', 'excerpt': 'New tax brackets effective July 1, 2026. Digital services tax introduced at 2%.', 'category': 'tz', 'source': 'Ministry of Finance Tanzania', 'source_url': 'https://mof.go.tz', 'is_pinned': False, 'is_admin_post': True},
-        {'title': 'EAC Harmonizes VAT Rules Across Member States', 'content': 'Member states agree on unified VAT treatment for cross-border digital services. New guidelines for e-commerce transactions. Simplified registration process for businesses operating in multiple EAC countries. This harmonization aims to reduce compliance burden for cross-border businesses.', 'excerpt': 'Member states agree on unified VAT treatment for cross-border digital services.', 'category': 'eac', 'source': 'East African Community', 'source_url': 'https://eac.int', 'is_pinned': False, 'is_admin_post': False},
-        {'title': 'Kenya Updates PAYE Thresholds for 2026/2027', 'content': 'Monthly PAYE threshold raised to KES 24,000. New tax bands announced. Digital marketplace withholding tax at 5%. Changes effective from July 1, 2026. The Kenya Revenue Authority (KRA) has also introduced new filing requirements for digital service providers.', 'excerpt': 'Monthly PAYE threshold raised to KES 24,000. New tax bands announced.', 'category': 'ke', 'source': 'Kenya Revenue Authority', 'source_url': 'https://kra.go.ke', 'is_pinned': False, 'is_admin_post': False},
-        {'title': 'Uganda Introduces Electronic Fiscal Receipting', 'content': 'All VAT-registered taxpayers must use EFRIS (Electronic Fiscal Receipting and Invoicing System) by September 2026. Penalties for non-compliance announced. Training sessions available nationwide. The Uganda Revenue Authority (URA) is providing free EFRIS devices to small businesses.', 'excerpt': 'All VAT-registered taxpayers must use EFRIS by September 2026.', 'category': 'ug', 'source': 'Uganda Revenue Authority', 'source_url': 'https://ura.go.ug', 'is_pinned': False, 'is_admin_post': False},
-    ]
-    for n in news:
-        db.session.add(NewsUpdate(**n))
-    db.session.commit()
-    print("Seeded sample news updates")
+    pass
 
-# ========================
-# AUTH ROUTES
-# ========================
 
-@app.route("/api/auth/me", methods=["GET"])
 def get_current_user():
     if current_user.is_authenticated:
         return jsonify({"logged_in": True, "email": current_user.email, "country": current_user.country, "role": current_user.role, "is_guest": current_user.is_guest, "is_premium": getattr(current_user, "is_premium", False)})
