@@ -1762,9 +1762,3 @@ migrate_db()
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=True)
-@app.route("/api/admin/clear-seed-news", methods=["POST"])
-def clear_seed_news():
-    fake_urls = ['https://tra.go.tz','https://mof.go.tz','https://kra.go.ke','https://ura.go.ug','https://eac.int']
-    deleted = NewsUpdate.query.filter(NewsUpdate.source_url.in_(fake_urls)).delete(synchronize_session=False)
-    db.session.commit()
-    return jsonify({"deleted": deleted})
