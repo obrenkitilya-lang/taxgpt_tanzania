@@ -328,7 +328,11 @@ LIVE_SEARCH_TRIGGERS = [
     "current", "latest", "today", "now", "recent", "2024", "2025", "2026",
     "who is", "who are", "commissioner", "minister", "director", "ceo", "chairman",
     "new law", "new regulation", "amendment", "budget", "announced", "just",
-    "this year", "this month", "last month", "breaking", "update"
+    "this year", "this month", "last month", "breaking", "update",
+    "procedure", "procedures", "how to", "how do", "steps to", "process",
+    "appeal", "trab", "trat", "objection", "dispute", "deadline", "penalty",
+    "form", "requirement", "requirements", "register", "registration",
+    "what is the", "what are the", "when is", "when are", "how much"
 ]
 
 def needs_web_search(question):
@@ -759,7 +763,7 @@ def ask():
             full_response = ""
             yield "data: " + json.dumps({'type': 'session', 'session_id': chat_session.id}) + "\n\n"
             stream = client.chat.completions.create(
-                model="gpt-4o-mini", 
+                model="gpt-4o", 
                 messages=[
                     {"role": "system", "content": system_prompt}, 
                     {"role": "user", "content": question}
