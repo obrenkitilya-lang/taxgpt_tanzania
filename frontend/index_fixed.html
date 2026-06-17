@@ -86,6 +86,11 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
 .calc-select:focus{outline:none;border-color:#dfff00}
 .calc-btn{width:100%;padding:12px;background:#dfff00;border:none;border-radius:9px;color:#0a0f00;font-weight:700;cursor:pointer;font-size:15px;letter-spacing:0.1px;transition:background 0.15s,transform 0.1s}
 .calc-btn:hover{background:#c8e600}
+.calc-tab{padding:10px 20px;background:none;border:none;border-bottom:3px solid transparent;color:#64748b;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.2s}
+.calc-tab.active{color:#dfff00;border-bottom:3px solid #dfff00}
+.calc-tab:hover{color:#dfff00}
+.origin-btn{flex:1;padding:10px;background:#020817;border:1px solid #1e293b;border-radius:8px;color:#64748b;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.2s}
+.origin-btn.active{background:#1a2a0a;border-color:#dfff00;color:#dfff00}
 .calc-btn:active{transform:scale(0.99)}
 .calc-result{margin-top:16px;padding:16px;background:#020817;border-radius:10px;border:1px solid #161f3a}
 .calc-result-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #161f3a;font-size:14px}
@@ -450,50 +455,73 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
   </div>
 
   <div class="tool-page hidden" id="calculatorsPage">
-    <div class="calculator-grid">
-      <div class="calc-card">
-        <h3>🧮 PAYE Calculator</h3>
-        <input type="number" class="calc-input" id="payeGross" placeholder="Enter gross salary (TZS)">
-        <button class="calc-btn" onclick="calculatePAYE()">Calculate Net Pay</button>
-        <div class="calc-result hidden" id="payeResult"></div>
+    <div style="max-width:900px;margin:0 auto;padding:0 20px;">
+      <div style="display:flex;gap:12px;margin-bottom:28px;border-bottom:1px solid #1e293b;">
+        <button class="calc-tab active" id="tab-payroll" onclick="switchCalcTab('payroll')">💼 Payroll</button>
+        <button class="calc-tab" id="tab-imports" onclick="switchCalcTab('imports')">🚢 Imports</button>
+        <button class="calc-tab" id="tab-vat" onclick="switchCalcTab('vat')">🧾 VAT</button>
       </div>
-      <div class="calc-card">
-        <h3>🧮 VAT Calculator</h3>
-        <input type="number" class="calc-input" id="vatAmount" placeholder="Enter amount (TZS)">
-        <button class="calc-btn" onclick="calculateVAT()">Calculate VAT</button>
-        <div class="calc-result hidden" id="vatResult"></div>
+      <div id="calcTab-payroll">
+        <div class="calculator-grid">
+          <div class="calc-card">
+            <h3>📥 Net Pay Calculator</h3>
+            <p style="color:#64748b;font-size:13px;margin-bottom:12px;">Enter gross salary to get take-home pay</p>
+            <input type="number" class="calc-input" id="payeGross" placeholder="Gross salary (TZS)">
+            <button class="calc-btn" onclick="calculatePAYE()">Calculate Net Pay</button>
+            <div class="calc-result hidden" id="payeResult"></div>
+          </div>
+          <div class="calc-card">
+            <h3>📤 Gross Pay Calculator</h3>
+            <p style="color:#64748b;font-size:13px;margin-bottom:12px;">Enter net pay to find required gross salary</p>
+            <input type="number" class="calc-input" id="grossFromNet" placeholder="Net pay (TZS)">
+            <button class="calc-btn" onclick="calculateGrossPay()">Calculate Gross Pay</button>
+            <div class="calc-result hidden" id="grossResult"></div>
+          </div>
+        </div>
       </div>
-      <div class="calc-card">
-        <h3>🧮 SDL Calculator</h3>
-        <input type="number" class="calc-input" id="sdlPayroll" placeholder="Enter gross payroll (TZS)">
-        <button class="calc-btn" onclick="calculateSDL()">Calculate SDL</button>
-        <div class="calc-result hidden" id="sdlResult"></div>
+      <div id="calcTab-imports" class="hidden">
+        <div class="calc-card" style="max-width:600px;">
+          <h3>🚢 Import & Export Duties Calculator</h3>
+          <p style="color:#64748b;font-size:13px;margin-bottom:16px;">Tanzania EAC CET — estimate customs duty, VAT and levies</p>
+          <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">Product Category</label>
+          <select class="calc-select" id="importCategory">
+            <option value="vehicles">🚗 Vehicles (25%)</option>
+            <option value="electronics">💻 Electronics (25%)</option>
+            <option value="clothing">👕 Clothing & Textiles (25%)</option>
+            <option value="food">🍎 Food & Beverages (25%)</option>
+            <option value="building">🏗️ Building Materials (10%)</option>
+            <option value="machinery">⚙️ Machinery & Equipment (0%)</option>
+            <option value="medicine">💊 Medicine & Medical Equipment (0%)</option>
+            <option value="fuel">⛽ Fuel & Energy (10%)</option>
+            <option value="furniture">🪑 Furniture (25%)</option>
+            <option value="agriculture">🌾 Agriculture Inputs (0%)</option>
+            <option value="used_clothes">👔 Used Clothes / Mitumba (35%)</option>
+            <option value="gems">💎 Gems & Metals (10%)</option>
+          </select>
+          <label style="color:#94a3b8;font-size:13px;display:block;margin:14px 0 6px;">Country of Origin</label>
+          <div style="display:flex;gap:10px;margin-bottom:14px;">
+            <button class="origin-btn active" id="origin-outside" onclick="setOrigin('outside')">🌍 Outside EAC</button>
+            <button class="origin-btn" id="origin-eac" onclick="setOrigin('eac')">🤝 EAC Partner State</button>
+          </div>
+          <label style="color:#94a3b8;font-size:13px;display:block;margin-bottom:6px;">CIF Value (TZS)</label>
+          <input type="number" class="calc-input" id="importCIF" placeholder="CIF value (TZS)">
+          <button class="calc-btn" onclick="calculateImportDuty()">Calculate Duties</button>
+          <div class="calc-result hidden" id="importResult"></div>
+          <p style="color:#475569;font-size:11px;margin-top:12px;">Planning estimate only. Confirm with TRA/TANCIS before filing.</p>
+        </div>
       </div>
-      <div class="calc-card">
-        <h3>🧮 WCF Calculator</h3>
-        <input type="number" class="calc-input" id="wcfPayroll" placeholder="Enter gross payroll (TZS)">
-        <button class="calc-btn" onclick="calculateWCF()">Calculate WCF</button>
-        <div class="calc-result hidden" id="wcfResult"></div>
-      </div>
-      <div class="calc-card">
-        <h3>🧮 Corporate Tax Calculator</h3>
-        <input type="number" class="calc-input" id="corpIncome" placeholder="Enter taxable income (TZS)">
-        <button class="calc-btn" onclick="calculateCorpTax()">Calculate Tax</button>
-        <div class="calc-result hidden" id="corpResult"></div>
-      </div>
-      <div class="calc-card">
-        <h3>🧮 Withholding Tax Calculator</h3>
-        <input type="number" class="calc-input" id="whAmount" placeholder="Enter payment amount (TZS)">
-        <select class="calc-select" id="whType">
-          <option value="dividends">Dividends (10%)</option>
-          <option value="interest">Interest (10%)</option>
-          <option value="royalties">Royalties (15%)</option>
-          <option value="rent">Rent (10%)</option>
-          <option value="services">Services (5%)</option>
-          <option value="consulting">Consulting (15%)</option>
-        </select>
-        <button class="calc-btn" onclick="calculateWithholding()">Calculate WHT</button>
-        <div class="calc-result hidden" id="whResult"></div>
+      <div id="calcTab-vat" class="hidden">
+        <div class="calc-card" style="max-width:500px;">
+          <h3>🧾 VAT Calculator</h3>
+          <p style="color:#64748b;font-size:13px;margin-bottom:16px;">Tanzania VAT rate: 18%</p>
+          <div style="display:flex;gap:10px;margin-bottom:14px;">
+            <button class="origin-btn active" id="vat-excl" onclick="setVatMode('exclusive')">Add VAT (exclusive)</button>
+            <button class="origin-btn" id="vat-incl" onclick="setVatMode('inclusive')">Extract VAT (inclusive)</button>
+          </div>
+          <input type="number" class="calc-input" id="vatAmount" placeholder="Enter amount (TZS)">
+          <button class="calc-btn" onclick="calculateVAT()">Calculate VAT</button>
+          <div class="calc-result hidden" id="vatResult"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1600,17 +1628,40 @@ function calcPost(url, body, resultId, renderFn) {
 function row(label, value) { return '<div class="calc-result-row"><span class="calc-result-label">' + label + '</span><span class="calc-result-value">' + value + '</span></div>'; }
 function money(v) { return Number(v).toLocaleString() + ' TZS'; }
 
+function switchCalcTab(tab) {
+  ['payroll','imports','vat'].forEach(t => {
+    document.getElementById('calcTab-'+t).classList.toggle('hidden', t !== tab);
+    document.getElementById('tab-'+t).classList.toggle('active', t === tab);
+  });
+}
+let importOrigin='outside', vatMode='exclusive';
+function setOrigin(v){importOrigin=v;document.getElementById('origin-outside').classList.toggle('active',v==='outside');document.getElementById('origin-eac').classList.toggle('active',v==='eac');}
+function setVatMode(v){vatMode=v;document.getElementById('vat-excl').classList.toggle('active',v==='exclusive');document.getElementById('vat-incl').classList.toggle('active',v==='inclusive');}
 function calculatePAYE() {
   const g = parseFloat(document.getElementById('payeGross').value); if (!g) return;
   calcPost('/api/calculate/paye', {gross_salary: g}, 'payeResult', d =>
-    row('Gross Salary', money(d.gross_salary)) + row('NSSF (10%)', money(d.nssf)) + row('PAYE', money(d.paye)) +
-    '<div class="calc-result-row"><span class="calc-result-label">Net Pay</span><span class="calc-result-value" style="color:#dfff00">' + money(d.net_pay) + '</span></div>');
+    row('Gross Salary', money(d.gross_salary)) + row('NSSF (10%)', money(d.nssf)) + row('Taxable Income', money(d.taxable_pay)) + row('PAYE Tax', money(d.paye)) +
+    '<div class="calc-result-row"><span class="calc-result-label" style="font-weight:700">Net Pay</span><span class="calc-result-value" style="color:#dfff00;font-size:18px">' + money(d.net_pay) + '</span></div>');
+}
+function calculateGrossPay() {
+  const n = parseFloat(document.getElementById('grossFromNet').value); if (!n) return;
+  calcPost('/api/calculate/gross_from_net', {net_pay: n}, 'grossResult', d =>
+    row('Net Pay', money(d.net_pay)) + row('NSSF', money(d.nssf)) + row('PAYE Tax', money(d.paye)) +
+    '<div class="calc-result-row"><span class="calc-result-label" style="font-weight:700">Required Gross Pay</span><span class="calc-result-value" style="color:#dfff00;font-size:18px">' + money(d.gross_salary) + '</span></div>');
 }
 function calculateVAT() {
   const a = parseFloat(document.getElementById('vatAmount').value); if (!a) return;
-  calcPost('/api/calculate/vat', {amount: a}, 'vatResult', d =>
-    row('Amount', money(d.amount)) + row('VAT (18%)', money(d.vat_amount)) +
-    '<div class="calc-result-row"><span class="calc-result-label">Total</span><span class="calc-result-value" style="color:#dfff00">' + money(d.total) + '</span></div>');
+  const ep = vatMode==='exclusive' ? '/api/calculate/vat' : '/api/calculate/vat_inclusive';
+  calcPost(ep, {amount: a}, 'vatResult', d => vatMode==='exclusive'
+    ? row('Exclusive Amount', money(d.amount)) + row('VAT (18%)', money(d.vat_amount)) + '<div class="calc-result-row"><span class="calc-result-label" style="font-weight:700">VAT Inclusive Total</span><span class="calc-result-value" style="color:#dfff00;font-size:18px">' + money(d.total) + '</span></div>'
+    : row('VAT Inclusive Amount', money(d.inclusive_amount)) + row('VAT Extracted (18%)', money(d.vat_amount)) + '<div class="calc-result-row"><span class="calc-result-label" style="font-weight:700">Exclusive Amount</span><span class="calc-result-value" style="color:#dfff00;font-size:18px">' + money(d.exclusive_amount) + '</span></div>');
+}
+function calculateImportDuty() {
+  const cif = parseFloat(document.getElementById('importCIF').value); if (!cif) return;
+  const cat = document.getElementById('importCategory').value;
+  calcPost('/api/calculate/import_duty', {cif_value: cif, category: cat, origin: importOrigin}, 'importResult', d =>
+    row('CIF Value', money(d.cif_value)) + row('Import Duty ('+d.duty_rate+')', money(d.import_duty)) + row('VAT on Imports (18%)', money(d.vat_amount)) + row('Railway Dev Levy (1.5%)', money(d.rdl_amount)) +
+    '<div class="calc-result-row"><span class="calc-result-label" style="font-weight:700">Total Landed Cost</span><span class="calc-result-value" style="color:#dfff00;font-size:18px">' + money(d.total_landed_cost) + '</span></div>');
 }
 function calculateSDL() {
   const p = parseFloat(document.getElementById('sdlPayroll').value); if (!p) return;

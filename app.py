@@ -881,6 +881,66 @@ def calculate_withholding():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/calculate/gross_from_net", methods=["POST"])
+def calculate_gross_from_net():
+    try:
+        data = request.get_json()
+        net_pay = float(data.get("net_pay", 0))
+        lo, hi = net_pay, net_pay * 3
+        for _ in range(60):
+            mid = (lo + hi) / 2
+            nssf = min(mid * 0.10, 100000)
+            taxable = mid - nssf
+            if taxable <= 270000: paye = 0
+            elif taxable <= 520000: paye = (taxable - 270000) * 0.08
+            elif taxable <= 760000: paye = 20000 + (taxable - 520000) * 0.20
+            elif taxable <= 1000000: paye = 68000 + (taxable - 760000) * 0.25
+            else: paye = 128000 + (taxable - 1000000) * 0.30
+            computed_net = mid - nssf - paye
+            if abs(computed_net - net_pay) < 0.01: break
+            if computed_net < net_pay: lo = mid
+            else: hi = mid
+        gross_salary = round(mid, 2)
+        nssf = round(min(gross_salary * 0.10, 100000), 2)
+        taxable = gross_salary - nssf
+        if taxable <= 270000: paye = 0
+        elif taxable <= 520000: paye = (taxable - 270000) * 0.08
+        elif taxable <= 760000: paye = 20000 + (taxable - 520000) * 0.20
+        elif taxable <= 1000000: paye = 68000 + (taxable - 760000) * 0.25
+        else: paye = 128000 + (taxable - 1000000) * 0.30
+        return jsonify({"net_pay": net_pay, "gross_salary": round(gross_salary), "nssf": round(nssf), "paye": round(paye)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/calculate/vat_inclusive", methods=["POST"])
+def calculate_vat_inclusive():
+    try:
+        data = request.get_json()
+        inclusive_amount = float(data.get("amount", 0))
+        vat_amount = inclusive_amount * 18 / 118
+        exclusive_amount = inclusive_amount - vat_amount
+        return jsonify({"inclusive_amount": round(inclusive_amount, 2), "vat_amount": round(vat_amount, 2), "exclusive_amount": round(exclusive_amount, 2)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/calculate/import_duty", methods=["POST"])
+def calculate_import_duty():
+    try:
+        data = request.get_json()
+        cif_value = float(data.get("cif_value", 0))
+        category = data.get("category", "vehicles")
+        origin = data.get("origin", "outside")
+        rates = {"vehicles":0.25,"electronics":0.25,"clothing":0.25,"food":0.25,"building":0.10,"machinery":0,"medicine":0,"fuel":0.10,"furniture":0.25,"agriculture":0,"used_clothes":0.35,"gems":0.10}
+        duty_rate = 0 if origin == "eac" else rates.get(category, 0.25)
+        import_duty = cif_value * duty_rate
+        dutiable_value = cif_value + import_duty
+        vat_amount = dutiable_value * 0.18
+        rdl_amount = cif_value * 0.015
+        total_landed_cost = cif_value + import_duty + vat_amount + rdl_amount
+        return jsonify({"cif_value": round(cif_value), "category": category, "origin": origin, "duty_rate": str(int(duty_rate*100)) + "%", "import_duty": round(import_duty), "vat_amount": round(vat_amount), "rdl_amount": round(rdl_amount), "total_landed_cost": round(total_landed_cost)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # ========================
 # DOCUMENT APIs
 # ========================
