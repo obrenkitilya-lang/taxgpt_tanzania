@@ -1038,22 +1038,11 @@ def analyze_document():
         user_msg = ChatMessage(session_id=chat_session.id, role='user', content="[Document: " + doc.filename + "] " + question)
         db.session.add(user_msg)
         db.session.commit()
-        import base64
-        if doc.file_data and doc.filename.lower().endswith('.pdf'):
-            pdf_b64 = base64.standard_b64encode(doc.file_data).decode("utf-8")
-            messages = [
-                {"role": "system", "content": TOOL_PROMPTS["documents"]},
-                {"role": "user", "content": [
-                    {"type": "text", "text": "Document: " + doc.filename + "\n\nQuestion: " + question},
-                    {"type": "file", "file": {"filename": doc.filename, "file_data": "data:application/pdf;base64," + pdf_b64}}
-                ]}
-            ]
-        else:
-            doc_content = doc.content_text[:15000] if doc.content_text else "No content available."
-            messages = [
-                {"role": "system", "content": TOOL_PROMPTS["documents"]},
-                {"role": "user", "content": "Document: " + doc.filename + "\n\n" + doc_content + "\n\nQuestion: " + question}
-            ]
+        doc_content = doc.content_text[:15000] if doc.content_text and len(doc.content_text.strip()) > 50 else "No readable text could be extracted from this document."
+        messages = [
+            {"role": "system", "content": TOOL_PROMPTS["documents"]},
+            {"role": "user", "content": "Document filename: " + doc.filename + "\n\nDocument content:\n" + doc_content + "\n\nQuestion: " + question}
+        ]
         response = client.chat.completions.create(
             model="gpt-4o", 
             messages=messages
