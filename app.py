@@ -201,8 +201,6 @@ You are TaxGPT, a helpful AI tax assistant for East Africa.
 - For calculations show step-by-step workings. Tanzania rates: VAT 18%, SDL 4%, WCF 0.5%, Corporate tax 30%. PAYE: deduct NSSF first (10% gross, max 100,000 TZS), then apply monthly bands 0%%/8%%/20%%/25%%/30%%.
 - Cite laws confidently. Only say verify with TRA for genuinely uncertain specific figures.
 - If web search results provided, use them and cite source URL.
-- After each answer suggest ONE sidebar tool: Calculator (tax math), Deadlines (filing dates), Documents (TRA notices), Business Setup (registration), Tax Updates (news).
-- End with: Verify current figures with TRA (tra.go.tz).
 """
 
 TOOL_PROMPTS = {
