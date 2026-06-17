@@ -980,17 +980,40 @@ def upload_document():
             return jsonify({"error": "Invalid file type. Allowed: PDF, DOC, DOCX, TXT, PNG, JPG"}), 400
         filename = secure_filename(file.filename)
         content_text = ""
+        file_data = file.read()
         if filename.lower().endswith('.pdf'):
             try:
-                pdf_reader = PyPDF2.PdfReader(file)
-                for page in pdf_reader.pages:
-                    content_text += page.extract_text() + "\n"
-            except Exception as e:
-                content_text = "Could not extract text: " + str(e)
+                import pdfplumber, io
+                with pdfplumber.open(io.BytesIO(file_data)) as pdf:
+                    content_text = "\n".join(p.extract_text() or "" for p in pdf.pages)
+            except Exception:
+                pass
+            if len(content_text.strip()) < 100:
+                try:
+                    import io
+                    reader = PyPDF2.PdfReader(io.BytesIO(file_data))
+                    content_text = "\n".join(p.extract_text() or "" for p in reader.pages)
+                except Exception:
+                    pass
+            if len(content_text.strip()) < 100:
+                try:
+                    import base64
+                    b64 = base64.standard_b64encode(file_data).decode("utf-8")
+                    vision_resp = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[{"role":"user","content":[
+                            {"type":"text","text":"Extract all text from this PDF document. Return the complete text content only, preserving structure."},
+                            {"type":"file","file":{"filename":filename,"file_data":"data:application/pdf;base64,"+b64}}
+                        ]}],
+                        max_tokens=4000
+                    )
+                    content_text = vision_resp.choices[0].message.content
+                except Exception as ve:
+                    content_text = "[Could not extract PDF text: " + str(ve) + "]"
         elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
             content_text = "[Image uploaded - visual analysis available via chat]"
         else:
-            content_text = "[Document uploaded: " + filename + "]"
+            content_text = file_data.decode("utf-8", errors="ignore")
         doc = Document(filename=filename, content_text=content_text, user_id=current_user.id if current_user.is_authenticated else None)
         db.session.add(doc)
         db.session.commit()
