@@ -1038,7 +1038,7 @@ def analyze_document():
         user_msg = ChatMessage(session_id=chat_session.id, role='user', content="[Document: " + doc.filename + "] " + question)
         db.session.add(user_msg)
         db.session.commit()
-        doc_content = doc.content_text[:3000] if doc.content_text else "No text content available."
+        doc_content = doc.content_text[:12000] if doc.content_text else "No text content available."
         doc_prompt = "Document content:\n" + doc_content + "\n\nQuestion: " + question
         response = client.chat.completions.create(
             model="gpt-4o-mini", 
