@@ -393,6 +393,7 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
             <span class="tax-tab-badge" id="deadlinesBadge" style="display:none">0</span>
           </div>
         </div>
+        <button class="post-update-btn" id="fetchNewsBtn" onclick="fetchLatestNews()" style="background:#1e293b;color:#dfff00;border:1px solid #dfff00;margin-right:8px;">🔄 Fetch Latest News</button>
         <button class="post-update-btn hidden" id="postUpdateBtn" onclick="openNewsModal()">+ Post Update</button>
       </div>
 
@@ -1313,6 +1314,22 @@ function loadTaxUpdates() {
   loadNews();
   loadDeadlines();
   loadComparison();
+}
+
+function fetchLatestNews() {
+  const btn = document.getElementById('fetchNewsBtn');
+  btn.textContent = '⏳ Fetching...';
+  btn.disabled = true;
+  fetch('/api/news/fetch-latest', { method: 'POST', credentials: 'include' })
+  .then(r => r.json())
+  .then(d => {
+    btn.textContent = '🔄 Fetch Latest News';
+    btn.disabled = false;
+    if (d.error) { alert(d.error); return; }
+    alert('✅ ' + d.message);
+    loadNews();
+  })
+  .catch(() => { btn.textContent = '🔄 Fetch Latest News'; btn.disabled = false; });
 }
 
 function loadNews() {
