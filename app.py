@@ -1126,6 +1126,47 @@ def create_news():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/news/fetch-latest", methods=["POST"])
+def fetch_latest_news():
+    try:
+        import json as _json, urllib.request
+        api_key = os.getenv("TAVILY_API_KEY")
+        if not api_key:
+            return jsonify({"error": "News fetching not configured (Tavily API key missing)"}), 503
+        queries = [
+            "Tanzania TRA tax news 2026",
+            "Kenya KRA tax update 2026",
+            "Uganda URA tax announcement 2026",
+            "East Africa tax law amendment 2026"
+        ]
+        added = 0
+        for query in queries:
+            try:
+                data = _json.dumps({"api_key": api_key, "query": query, "search_depth": "basic", "max_results": 3}).encode()
+                req = urllib.request.Request("https://api.tavily.com/search", data=data, headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    result = _json.loads(resp.read().decode())
+                for r in result.get("results", []):
+                    title = r.get("title", "").strip()[:200]
+                    url = r.get("url", "")
+                    snippet = r.get("content", "").strip()[:1000]
+                    if not title or not snippet:
+                        continue
+                    exists = NewsUpdate.query.filter_by(source_url=url).first()
+                    if exists:
+                        continue
+                    if "tanzania" in title.lower() or "tra" in title.lower() or "kenya" in title.lower() or "uganda" in title.lower() or "tax" in title.lower() or "eac" in title.lower():
+                        cat = "tz" if any(w in title.lower() for w in ["tanzania","tra"]) else "ke" if "kenya" in title.lower() or "kra" in title.lower() else "ug" if "uganda" in title.lower() else "eac"
+                        news = NewsUpdate(title=title, content=snippet, excerpt=snippet[:200], category=cat, source=r.get("title","")[:100], source_url=url, is_pinned=False, is_admin_post=False, created_by=current_user.id if current_user.is_authenticated else None)
+                        db.session.add(news)
+                        added += 1
+            except Exception as qe:
+                print("Query error:", str(qe))
+        db.session.commit()
+        return jsonify({"message": str(added) + " new articles added" if added else "No new articles found — already up to date", "added": added})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/news/<int:news_id>", methods=["PUT"])
 @admin_required
 def update_news(news_id):
