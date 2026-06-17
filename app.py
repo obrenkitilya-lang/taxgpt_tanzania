@@ -1038,14 +1038,25 @@ def analyze_document():
         user_msg = ChatMessage(session_id=chat_session.id, role='user', content="[Document: " + doc.filename + "] " + question)
         db.session.add(user_msg)
         db.session.commit()
-        doc_content = doc.content_text[:12000] if doc.content_text else "No text content available."
-        doc_prompt = "Document content:\n" + doc_content + "\n\nQuestion: " + question
+        import base64
+        if doc.file_data and doc.filename.lower().endswith('.pdf'):
+            pdf_b64 = base64.standard_b64encode(doc.file_data).decode("utf-8")
+            messages = [
+                {"role": "system", "content": TOOL_PROMPTS["documents"]},
+                {"role": "user", "content": [
+                    {"type": "text", "text": "Document: " + doc.filename + "\n\nQuestion: " + question},
+                    {"type": "file", "file": {"filename": doc.filename, "file_data": "data:application/pdf;base64," + pdf_b64}}
+                ]}
+            ]
+        else:
+            doc_content = doc.content_text[:15000] if doc.content_text else "No content available."
+            messages = [
+                {"role": "system", "content": TOOL_PROMPTS["documents"]},
+                {"role": "user", "content": "Document: " + doc.filename + "\n\n" + doc_content + "\n\nQuestion: " + question}
+            ]
         response = client.chat.completions.create(
             model="gpt-4o", 
-            messages=[
-                {"role": "system", "content": TOOL_PROMPTS["documents"]}, 
-                {"role": "user", "content": doc_prompt}
-            ]
+            messages=messages
         )
         answer = response.choices[0].message.content
         ai_msg = ChatMessage(session_id=chat_session.id, role='ai', content=answer)
