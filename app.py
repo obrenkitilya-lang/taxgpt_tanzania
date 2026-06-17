@@ -332,7 +332,9 @@ LIVE_SEARCH_TRIGGERS = [
     "procedure", "procedures", "how to", "how do", "steps to", "process",
     "appeal", "trab", "trat", "objection", "dispute", "deadline", "penalty",
     "form", "requirement", "requirements", "register", "registration",
-    "what is the", "what are the", "when is", "when are", "how much"
+    "what is the", "what are the", "when is", "when are", "how much",
+    "appeal", "trab", "trat", "objection", "procedure", "procedures",
+    "how to", "steps", "form ", "trb", "deadline", "penalty", "requirement"
 ]
 
 def needs_web_search(question):
