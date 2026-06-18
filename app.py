@@ -568,6 +568,13 @@ def api_login():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/api/auth/me", methods=["GET"])
+def auth_me():
+    if current_user.is_authenticated:
+        return jsonify({"logged_in": True, "email": current_user.email, "role": current_user.role, "country": getattr(current_user, "country", "Tanzania"), "is_premium": getattr(current_user, "is_premium", False)})
+    return jsonify({"logged_in": False})
+
 @app.route("/api/auth/logout", methods=["POST"])
 @login_required
 def api_logout():
