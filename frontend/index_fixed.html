@@ -301,6 +301,22 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
 @media (min-width: 769px) {
   .hamburger { display: none; }
 }
+
+.sidebar-bottom{border-top:1px solid #161f3a;position:relative}
+.user-menu-trigger{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;transition:background 0.15s}
+.user-menu-trigger:hover{background:#111c44}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:#dfff00;color:#0a0f00;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.user-menu-info{flex:1;min-width:0}
+.user-email{font-size:13px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-plan-badge{font-size:11px;font-weight:600;color:#64748b;margin-top:1px}
+.user-plan-badge.premium{color:#dfff00}
+.user-menu-dropdown{position:absolute;bottom:100%;left:8px;right:8px;background:#0c1635;border:1px solid #1e293b;border-radius:12px;padding:8px;box-shadow:0 -8px 32px rgba(0,0,0,0.4);z-index:100}
+.user-menu-header{padding:6px 8px 10px;border-bottom:1px solid #161f3a;margin-bottom:6px}
+.user-menu-item{display:block;width:100%;text-align:left;padding:9px 10px;border-radius:8px;font-size:14px;color:#94a3b8;font-weight:500;cursor:pointer;background:none;border:none;font-family:inherit;text-decoration:none;transition:background 0.15s,color 0.15s}
+.user-menu-item:hover{background:#161f3a;color:#e2e8f0}
+.user-menu-divider{height:1px;background:#161f3a;margin:6px 0}
+.user-menu-logout{color:#f87171 !important}
+.user-menu-logout:hover{background:#450a0a !important}
 </style>
 
 </head>
