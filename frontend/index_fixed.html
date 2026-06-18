@@ -334,8 +334,6 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
     <div class="tool-item" id="tool-documents" onclick="window.location.href='/documents'" style="cursor:pointer;">📄 Documents</div>
     <div class="tool-item" id="tool-calculators" onclick="window.location.href='/calculators'" style="cursor:pointer;">🧮 Calculators</div>
     <div class="tool-item" id="tool-business_setup" onclick="window.location.href='/business_setup'" style="cursor:pointer;">🏢 Business Setup</div>
-    <div class="tool-item" id="tool-fs_service" onclick="showTool('fs_service')" style="cursor:pointer;">📊 Financial Statements</div>
-    <div class="tool-item" id="tool-disputes" onclick="showTool('disputes')" style="cursor:pointer;">⚖️ TRA Disputes</div>
   </div>
 
   <div class="history-section">
@@ -781,86 +779,6 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
     </div>
   </div>
 
-
-  <div class="tool-page hidden" id="fsServicePage">
-    <div style="max-width:900px;margin:0 auto;padding:24px 20px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <div>
-          <h2 style="color:#dfff00;font-size:26px;font-weight:800;margin-bottom:4px;">📊 Financial Statements Service</h2>
-          <p style="color:#64748b;font-size:14px;">Upload your financial data — we audit, prepare, and optionally submit to TRA on your behalf.</p>
-        </div>
-        <button onclick="showFSForm()" style="background:#dfff00;color:#000;border:none;padding:10px 20px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;">+ New Request</button>
-      </div>
-      <div id="fsNewForm" style="display:none;background:#0c1635;border:1px solid #1e293b;border-radius:14px;padding:24px;margin-bottom:24px;">
-        <h3 style="margin-bottom:18px;font-size:16px;">Submit New Request</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-          <div><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Business Name *</label><input id="fsBusinessName" type="text" placeholder="e.g. Acme Ltd" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
-          <div><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">TIN Number</label><input id="fsTin" type="text" placeholder="e.g. 100-123-456" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-          <div><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Financial Period *</label><input id="fsPeriod" type="text" placeholder="e.g. Jan 2024 – Dec 2024" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
-          <div><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Service Type</label><select id="fsServiceType" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;"><option value="audit">Audit & Review</option><option value="preparation">FS Preparation</option><option value="submission">Audit + TRA Submission</option></select></div>
-        </div>
-        <div style="margin-bottom:14px;"><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Upload Documents (FS, Tally export, receipts, etc.)</label><input id="fsFiles" type="file" multiple accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.zip" style="width:100%;background:#0f172a;color:#94a3b8;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
-        <div style="margin-bottom:14px;"><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Notes / Instructions</label><textarea id="fsNotes" rows="3" placeholder="Any specific instructions..." style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea></div>
-        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:16px;margin-bottom:16px;">
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="checkbox" id="fsTraRequested" onchange="toggleTraCreds()" style="width:16px;height:16px;accent-color:#dfff00;"><span style="font-size:14px;font-weight:600;">Also submit returns to TRA on my behalf</span></label>
-          <div id="traCredsSection" style="display:none;margin-top:14px;border-top:1px solid #1e293b;padding-top:14px;">
-            <p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">🔒 Your credentials are encrypted and deleted after submission.</p>
-            <input id="fsTraUsername" type="text" placeholder="TRA Portal Username / TIN" style="width:100%;background:#0c1635;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:10px;box-sizing:border-box;">
-            <input id="fsTraPassword" type="password" placeholder="TRA Portal Password" style="width:100%;background:#0c1635;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;box-sizing:border-box;">
-          </div>
-        </div>
-        <div style="display:flex;gap:10px;">
-          <button onclick="submitFSCase()" style="background:#dfff00;color:#000;border:none;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">Submit Request</button>
-          <button onclick="document.getElementById('fsNewForm').style.display='none'" style="background:#1e293b;color:#94a3b8;border:none;padding:10px 24px;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">Cancel</button>
-        </div>
-        <div id="fsFormMsg" style="margin-top:12px;font-size:13px;"></div>
-      </div>
-      <div id="fsCasesList"></div>
-      <div id="fsCaseDetail" style="display:none;background:#0c1635;border:1px solid #1e293b;border-radius:14px;padding:24px;">
-        <button onclick="closeFSDetail()" style="background:#1e293b;color:#94a3b8;border:none;padding:7px 14px;border-radius:8px;font-size:13px;cursor:pointer;margin-bottom:16px;">← Back</button>
-        <div id="fsCaseDetailContent"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="tool-page hidden" id="disputesPage">
-    <div style="max-width:900px;margin:0 auto;padding:24px 20px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <div>
-          <h2 style="color:#dfff00;font-size:26px;font-weight:800;margin-bottom:4px;">⚖️ TRA Dispute Support</h2>
-          <p style="color:#64748b;font-size:14px;">Upload TRA notices — we review and prepare your response, objection, or appeal.</p>
-        </div>
-        <button onclick="showDisputeForm()" style="background:#dfff00;color:#000;border:none;padding:10px 20px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;">+ New Case</button>
-      </div>
-      <div id="disputeNewForm" style="display:none;background:#0c1635;border:1px solid #1e293b;border-radius:14px;padding:24px;margin-bottom:24px;">
-        <h3 style="margin-bottom:18px;font-size:16px;">Submit New Dispute Case</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-          <div><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Business Name *</label><input id="dispBusinessName" type="text" placeholder="e.g. Acme Ltd" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
-          <div><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">TIN Number</label><input id="dispTin" type="text" placeholder="e.g. 100-123-456" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-          <div><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Notice / Dispute Type *</label><select id="dispType" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;"><option value="">Select type...</option><option value="audit">Tax Audit</option><option value="examination">Tax Examination</option><option value="investigation">Tax Investigation</option><option value="verification">Tax Verification</option><option value="objection">Objection to Assessment</option><option value="appeal">Tax Appeal</option></select></div>
-          <div><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">TRA Notice Date</label><input id="dispNoticeDate" type="date" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
-        </div>
-        <div style="margin-bottom:14px;"><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Response Deadline</label><input id="dispDeadline" type="date" style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
-        <div style="margin-bottom:14px;"><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Upload TRA Notice / Supporting Documents</label><input id="dispFiles" type="file" multiple accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.png" style="width:100%;background:#0f172a;color:#94a3b8;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
-        <div style="margin-bottom:16px;"><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Describe the dispute / context</label><textarea id="dispDescription" rows="4" placeholder="Summarise what the TRA notice says..." style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px 14px;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea></div>
-        <div style="display:flex;gap:10px;">
-          <button onclick="submitDisputeCase()" style="background:#dfff00;color:#000;border:none;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">Submit Case</button>
-          <button onclick="document.getElementById('disputeNewForm').style.display='none'" style="background:#1e293b;color:#94a3b8;border:none;padding:10px 24px;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">Cancel</button>
-        </div>
-        <div id="dispFormMsg" style="margin-top:12px;font-size:13px;"></div>
-      </div>
-      <div id="disputeCasesList"></div>
-      <div id="disputeCaseDetail" style="display:none;background:#0c1635;border:1px solid #1e293b;border-radius:14px;padding:24px;">
-        <button onclick="closeDisputeDetail()" style="background:#1e293b;color:#94a3b8;border:none;padding:7px 14px;border-radius:8px;font-size:13px;cursor:pointer;margin-bottom:16px;">← Back</button>
-        <div id="disputeCaseDetailContent"></div>
-      </div>
-    </div>
-  </div>
-
   <div class="tool-page hidden" id="adminPage">
     <div style="max-width:1200px;margin:0 auto;padding:20px;">
       <h2 style="color:#dfff00;margin-bottom:24px;font-size:28px;">🔒 Admin Dashboard</h2>
@@ -1076,7 +994,7 @@ const toolNames = {
   'tax_research': 'Tax Research', 'tax_updates': 'Tax Updates',
   'documents': 'Documents', 'calculators': 'Calculators',
   'deadlines': 'Deadlines', 'business_setup': 'Business Setup',
-  'admin': 'Admin Panel', 'fs_service': 'Financial Statements', 'disputes': 'TRA Disputes'
+  'admin': 'Admin Panel'
 };
 
 if (currentTool === 'tax_updates') {
@@ -2311,116 +2229,6 @@ async function submitBusinessLead() {
     else{msgEl.innerHTML='<span style="color:#4ade80;">Thank you! We will contact you shortly.</span>';document.getElementById('leadName').value='';document.getElementById('leadEmail').value='';document.getElementById('leadPhone').value='';document.getElementById('leadDesc').value='';}
   } catch(e){msgEl.innerHTML='<span style="color:#f87171;">Network error.</span>';}
 }
-
-const FS_STATUS_LABELS = {submitted:{label:'Submitted',color:'#60a5fa'},under_review:{label:'Under Review',color:'#f59e0b'},docs_requested:{label:'Documents Requested',color:'#fb923c'},ready:{label:'Ready to Download',color:'#34d399'},completed:{label:'Completed',color:'#4ade80'}};
-const DISP_STATUS_LABELS = {submitted:{label:'Submitted',color:'#60a5fa'},under_review:{label:'Under Review',color:'#f59e0b'},docs_requested:{label:'Documents Requested',color:'#fb923c'},response_ready:{label:'Response Ready',color:'#34d399'},completed:{label:'Completed',color:'#4ade80'}};
-const DISPUTE_TYPES = {audit:'Tax Audit',examination:'Tax Examination',investigation:'Tax Investigation',verification:'Tax Verification',objection:'Objection to Assessment',appeal:'Tax Appeal'};
-
-function showFSForm(){document.getElementById('fsNewForm').style.display='block';document.getElementById('fsCaseDetail').style.display='none';document.getElementById('fsCasesList').style.display='block';}
-function toggleTraCreds(){document.getElementById('traCredsSection').style.display=document.getElementById('fsTraRequested').checked?'block':'none';}
-
-async function submitFSCase(){
-  const msg=document.getElementById('fsFormMsg');
-  const name=document.getElementById('fsBusinessName').value.trim();
-  const period=document.getElementById('fsPeriod').value.trim();
-  if(!name||!period){msg.innerHTML='<span style="color:#f87171;">Business name and period are required.</span>';return;}
-  msg.innerHTML='<span style="color:#94a3b8;">Submitting...</span>';
-  const fd=new FormData();
-  fd.append('business_name',name);fd.append('tin',document.getElementById('fsTin').value.trim());
-  fd.append('period',period);fd.append('service_type',document.getElementById('fsServiceType').value);
-  fd.append('notes',document.getElementById('fsNotes').value);
-  const traReq=document.getElementById('fsTraRequested').checked;
-  fd.append('tra_submission_requested',traReq);
-  if(traReq) fd.append('tra_credentials',JSON.stringify({username:document.getElementById('fsTraUsername').value.trim(),password:document.getElementById('fsTraPassword').value}));
-  for(const f of document.getElementById('fsFiles').files) fd.append('documents',f);
-  try{const r=await fetch('/api/fs/cases',{method:'POST',body:fd,credentials:'include'});const d=await r.json();
-    if(d.error){msg.innerHTML=`<span style="color:#f87171;">${d.error}</span>`;return;}
-    msg.innerHTML='<span style="color:#4ade80;">✅ Submitted! We will review and contact you.</span>';
-    setTimeout(()=>{document.getElementById('fsNewForm').style.display='none';loadFSCases();},1500);
-  }catch(e){msg.innerHTML='<span style="color:#f87171;">Network error.</span>';}
-}
-
-async function loadFSCases(){
-  const list=document.getElementById('fsCasesList');
-  list.innerHTML='<div style="color:#64748b;padding:20px;text-align:center;">Loading...</div>';
-  try{const r=await fetch('/api/fs/cases',{credentials:'include'});const cases=await r.json();
-    if(!cases.length){list.innerHTML='<div style="color:#64748b;padding:40px;text-align:center;">No cases yet. Click "+ New Request" to get started.</div>';return;}
-    list.innerHTML=cases.map(c=>{const s=FS_STATUS_LABELS[c.status]||{label:c.status,color:'#94a3b8'};
-      return `<div onclick="openFSCase(${c.id})" style="background:#0c1635;border:1px solid #1e293b;border-radius:12px;padding:18px 20px;margin-bottom:12px;cursor:pointer;" onmouseover="this.style.borderColor='#334155'" onmouseout="this.style.borderColor='#1e293b'"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><div style="font-weight:700;font-size:15px;margin-bottom:4px;">${c.business_name}</div><div style="color:#64748b;font-size:13px;">${c.period} · ${c.service_type}</div></div><div style="text-align:right;"><span style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}44;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;">${s.label}</span><div style="color:#475569;font-size:11px;margin-top:6px;">${c.created_at}</div></div></div></div>`;
-    }).join('');
-  }catch(e){list.innerHTML='<div style="color:#f87171;padding:20px;">Failed to load.</div>';}
-}
-
-async function openFSCase(id){
-  document.getElementById('fsCasesList').style.display='none';
-  document.getElementById('fsNewForm').style.display='none';
-  document.getElementById('fsCaseDetail').style.display='block';
-  const content=document.getElementById('fsCaseDetailContent');
-  content.innerHTML='<div style="color:#64748b;">Loading...</div>';
-  const r=await fetch(`/api/fs/cases/${id}`,{credentials:'include'});const c=await r.json();
-  const s=FS_STATUS_LABELS[c.status]||{label:c.status,color:'#94a3b8'};
-  const isAdmin=userRole==='admin'||userRole==='tax_professional';
-  const adminControls=isAdmin?`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:16px;margin-top:20px;"><h4 style="margin-bottom:12px;font-size:14px;color:#94a3b8;">Admin Controls</h4><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">${['submitted','under_review','docs_requested','ready','completed'].map(st=>`<button onclick="updateFSStatus(${id},'${st}')" style="background:${c.status===st?'#dfff00':'#1e293b'};color:${c.status===st?'#000':'#94a3b8'};border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">${FS_STATUS_LABELS[st]?.label||st}</button>`).join('')}</div><textarea id="adminFSMsg" rows="2" placeholder="Send message or request documents..." style="width:100%;background:#0c1635;color:white;border:1px solid #334155;padding:10px;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:8px;"></textarea><div style="display:flex;gap:8px;"><button onclick="sendFSMessage(${id},false)" style="background:#1e3a5f;color:#60a5fa;border:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;">Send Message</button><button onclick="sendFSMessage(${id},true)" style="background:#451a03;color:#fb923c;border:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;">Request Documents</button></div><div style="margin-top:12px;"><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Upload audited FS / output documents</label><input id="adminFSUpload" type="file" multiple style="color:#94a3b8;font-size:13px;"><button onclick="uploadFSAdminDocs(${id})" style="background:#dfff00;color:#000;border:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">Upload</button></div></div>`:'';
-  content.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;"><div><h3 style="font-size:20px;font-weight:800;margin-bottom:4px;">${c.business_name}</h3><div style="color:#64748b;font-size:13px;">${c.period} · TIN: ${c.tin||'—'}</div></div><span style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}44;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;">${s.label}</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;"><div><h4 style="font-size:13px;color:#64748b;margin-bottom:10px;">DOCUMENTS</h4>${c.documents.length?c.documents.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;background:#0f172a;border-radius:8px;padding:10px 12px;margin-bottom:8px;"><div><div style="font-size:13px;font-weight:500;">${d.filename}</div><div style="font-size:11px;color:#475569;">${d.uploaded_by} · ${d.doc_type}</div></div><a href="/api/fs/cases/${id}/documents/${d.id}/download" style="color:#dfff00;font-size:12px;font-weight:600;text-decoration:none;">↓ Download</a></div>`).join(''):'<div style="color:#475569;font-size:13px;">No documents yet.</div>'}${!isAdmin?`<div style="margin-top:12px;"><input id="clientFSUpload" type="file" multiple style="color:#94a3b8;font-size:13px;"><button onclick="uploadFSClientDocs(${id})" style="background:#1e293b;color:#dfff00;border:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;">Upload Documents</button></div>`:''}</div><div><h4 style="font-size:13px;color:#64748b;margin-bottom:10px;">MESSAGES</h4><div style="max-height:250px;overflow-y:auto;">${c.messages.length?c.messages.map(m=>`<div style="background:${m.sender==='admin'?'#1e3a5f':'#0f172a'};border-radius:8px;padding:10px 12px;margin-bottom:8px;${m.is_request?'border:1px solid #fb923c44;':''}">${m.is_request?'<div style="color:#fb923c;font-size:11px;font-weight:700;margin-bottom:4px;">📎 DOCUMENT REQUEST</div>':''}<div style="font-size:13px;">${m.content}</div><div style="font-size:11px;color:#475569;margin-top:4px;">${m.sender_email} · ${m.created_at}</div></div>`).join(''):'<div style="color:#475569;font-size:13px;">No messages yet.</div>'}</div>${!isAdmin?`<textarea id="clientFSMsg" rows="2" placeholder="Send a message..." style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;margin-top:10px;"></textarea><button onclick="sendFSMessage(${id},false)" style="background:#1e293b;color:#dfff00;border:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;">Send</button>`:''}</div></div>${adminControls}`;
-}
-
-function closeFSDetail(){document.getElementById('fsCaseDetail').style.display='none';document.getElementById('fsCasesList').style.display='block';loadFSCases();}
-async function updateFSStatus(id,status){await fetch(`/api/fs/cases/${id}/status`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status}),credentials:'include'});openFSCase(id);}
-async function sendFSMessage(id,isRequest){const el=document.getElementById('adminFSMsg')||document.getElementById('clientFSMsg');const content=el?.value.trim();if(!content)return;await fetch(`/api/fs/cases/${id}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content,is_request:isRequest}),credentials:'include'});el.value='';openFSCase(id);}
-async function uploadFSAdminDocs(id){const files=document.getElementById('adminFSUpload').files;if(!files.length)return;const fd=new FormData();for(const f of files)fd.append('documents',f);fd.append('doc_type','output');await fetch(`/api/fs/cases/${id}/documents`,{method:'POST',body:fd,credentials:'include'});openFSCase(id);}
-async function uploadFSClientDocs(id){const files=document.getElementById('clientFSUpload').files;if(!files.length)return;const fd=new FormData();for(const f of files)fd.append('documents',f);fd.append('doc_type','upload');await fetch(`/api/fs/cases/${id}/documents`,{method:'POST',body:fd,credentials:'include'});openFSCase(id);}
-
-function showDisputeForm(){document.getElementById('disputeNewForm').style.display='block';document.getElementById('disputeCaseDetail').style.display='none';document.getElementById('disputeCasesList').style.display='block';}
-
-async function submitDisputeCase(){
-  const msg=document.getElementById('dispFormMsg');
-  const name=document.getElementById('dispBusinessName').value.trim();
-  const type=document.getElementById('dispType').value;
-  if(!name||!type){msg.innerHTML='<span style="color:#f87171;">Business name and dispute type are required.</span>';return;}
-  msg.innerHTML='<span style="color:#94a3b8;">Submitting...</span>';
-  const fd=new FormData();
-  fd.append('business_name',name);fd.append('tin',document.getElementById('dispTin').value.trim());
-  fd.append('dispute_type',type);fd.append('notice_date',document.getElementById('dispNoticeDate').value);
-  fd.append('deadline_date',document.getElementById('dispDeadline').value);
-  fd.append('description',document.getElementById('dispDescription').value);
-  for(const f of document.getElementById('dispFiles').files) fd.append('documents',f);
-  try{const r=await fetch('/api/disputes/cases',{method:'POST',body:fd,credentials:'include'});const d=await r.json();
-    if(d.error){msg.innerHTML=`<span style="color:#f87171;">${d.error}</span>`;return;}
-    msg.innerHTML='<span style="color:#4ade80;">✅ Case submitted! We will review the notice and be in touch.</span>';
-    setTimeout(()=>{document.getElementById('disputeNewForm').style.display='none';loadDisputeCases();},1500);
-  }catch(e){msg.innerHTML='<span style="color:#f87171;">Network error.</span>';}
-}
-
-async function loadDisputeCases(){
-  const list=document.getElementById('disputeCasesList');
-  list.innerHTML='<div style="color:#64748b;padding:20px;text-align:center;">Loading...</div>';
-  try{const r=await fetch('/api/disputes/cases',{credentials:'include'});const cases=await r.json();
-    if(!cases.length){list.innerHTML='<div style="color:#64748b;padding:40px;text-align:center;">No cases yet. Click "+ New Case" to get started.</div>';return;}
-    list.innerHTML=cases.map(c=>{const s=DISP_STATUS_LABELS[c.status]||{label:c.status,color:'#94a3b8'};const dtype=DISPUTE_TYPES[c.dispute_type]||c.dispute_type;
-      return `<div onclick="openDisputeCase(${c.id})" style="background:#0c1635;border:1px solid #1e293b;border-radius:12px;padding:18px 20px;margin-bottom:12px;cursor:pointer;" onmouseover="this.style.borderColor='#334155'" onmouseout="this.style.borderColor='#1e293b'"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><div style="font-weight:700;font-size:15px;margin-bottom:4px;">${c.business_name}</div><div style="color:#64748b;font-size:13px;">${dtype}${c.deadline_date?' · <span style="color:#fb923c;">Deadline: '+c.deadline_date+'</span>':''}</div></div><div style="text-align:right;"><span style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}44;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;">${s.label}</span><div style="color:#475569;font-size:11px;margin-top:6px;">${c.created_at}</div></div></div></div>`;
-    }).join('');
-  }catch(e){list.innerHTML='<div style="color:#f87171;padding:20px;">Failed to load.</div>';}
-}
-
-async function openDisputeCase(id){
-  document.getElementById('disputeCasesList').style.display='none';
-  document.getElementById('disputeNewForm').style.display='none';
-  document.getElementById('disputeCaseDetail').style.display='block';
-  const content=document.getElementById('disputeCaseDetailContent');
-  content.innerHTML='<div style="color:#64748b;">Loading...</div>';
-  const r=await fetch(`/api/disputes/cases/${id}`,{credentials:'include'});const c=await r.json();
-  const s=DISP_STATUS_LABELS[c.status]||{label:c.status,color:'#94a3b8'};
-  const dtype=DISPUTE_TYPES[c.dispute_type]||c.dispute_type;
-  const isAdmin=userRole==='admin'||userRole==='tax_professional';
-  const adminControls=isAdmin?`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:16px;margin-top:20px;"><h4 style="margin-bottom:12px;font-size:14px;color:#94a3b8;">Admin Controls</h4><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">${['submitted','under_review','docs_requested','response_ready','completed'].map(st=>`<button onclick="updateDisputeStatus(${id},'${st}')" style="background:${c.status===st?'#dfff00':'#1e293b'};color:${c.status===st?'#000':'#94a3b8'};border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">${DISP_STATUS_LABELS[st]?.label||st}</button>`).join('')}</div><textarea id="adminDispMsg" rows="2" placeholder="Send message or request documents..." style="width:100%;background:#0c1635;color:white;border:1px solid #334155;padding:10px;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:8px;"></textarea><div style="display:flex;gap:8px;"><button onclick="sendDispMessage(${id},false)" style="background:#1e3a5f;color:#60a5fa;border:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;">Send Message</button><button onclick="sendDispMessage(${id},true)" style="background:#451a03;color:#fb923c;border:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;">Request Documents</button></div><div style="margin-top:12px;"><label style="font-size:12px;color:#64748b;display:block;margin-bottom:6px;">Upload prepared response / objection / appeal</label><input id="adminDispUpload" type="file" multiple style="color:#94a3b8;font-size:13px;"><button onclick="uploadDispAdminDocs(${id})" style="background:#dfff00;color:#000;border:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">Upload Response</button></div></div>`:'';
-  content.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;"><div><h3 style="font-size:20px;font-weight:800;margin-bottom:4px;">${c.business_name}</h3><div style="color:#64748b;font-size:13px;">${dtype} · TIN: ${c.tin||'—'}${c.deadline_date?' · <span style="color:#fb923c;">Deadline: '+c.deadline_date+'</span>':''}</div></div><span style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}44;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;">${s.label}</span></div>${c.description?`<div style="background:#0f172a;border-radius:8px;padding:14px;margin-bottom:20px;color:#94a3b8;font-size:14px;">${c.description}</div>`:''}<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;"><div><h4 style="font-size:13px;color:#64748b;margin-bottom:10px;">DOCUMENTS</h4>${c.documents.length?c.documents.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;background:#0f172a;border-radius:8px;padding:10px 12px;margin-bottom:8px;"><div><div style="font-size:13px;font-weight:500;">${d.filename}</div><div style="font-size:11px;color:#475569;">${d.uploaded_by} · ${d.doc_type}</div></div><a href="/api/disputes/cases/${id}/documents/${d.id}/download" style="color:#dfff00;font-size:12px;font-weight:600;text-decoration:none;">↓ Download</a></div>`).join(''):'<div style="color:#475569;font-size:13px;">No documents yet.</div>'}${!isAdmin?`<div style="margin-top:12px;"><input id="clientDispUpload" type="file" multiple style="color:#94a3b8;font-size:13px;"><button onclick="uploadDispClientDocs(${id})" style="background:#1e293b;color:#dfff00;border:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;">Upload Documents</button></div>`:''}</div><div><h4 style="font-size:13px;color:#64748b;margin-bottom:10px;">MESSAGES</h4><div style="max-height:250px;overflow-y:auto;">${c.messages.length?c.messages.map(m=>`<div style="background:${m.sender==='admin'?'#1e3a5f':'#0f172a'};border-radius:8px;padding:10px 12px;margin-bottom:8px;${m.is_request?'border:1px solid #fb923c44;':''}">${m.is_request?'<div style="color:#fb923c;font-size:11px;font-weight:700;margin-bottom:4px;">📎 DOCUMENT REQUEST</div>':''}<div style="font-size:13px;">${m.content}</div><div style="font-size:11px;color:#475569;margin-top:4px;">${m.sender_email} · ${m.created_at}</div></div>`).join(''):'<div style="color:#475569;font-size:13px;">No messages yet.</div>'}</div>${!isAdmin?`<textarea id="clientDispMsg" rows="2" placeholder="Send a message..." style="width:100%;background:#0f172a;color:white;border:1px solid #334155;padding:10px;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;margin-top:10px;"></textarea><button onclick="sendDispMessage(${id},false)" style="background:#1e293b;color:#dfff00;border:none;padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;">Send</button>`:''}</div></div>${adminControls}`;
-}
-
-function closeDisputeDetail(){document.getElementById('disputeCaseDetail').style.display='none';document.getElementById('disputeCasesList').style.display='block';loadDisputeCases();}
-async function updateDisputeStatus(id,status){await fetch(`/api/disputes/cases/${id}/status`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status}),credentials:'include'});openDisputeCase(id);}
-async function sendDispMessage(id,isRequest){const el=document.getElementById('adminDispMsg')||document.getElementById('clientDispMsg');const content=el?.value.trim();if(!content)return;await fetch(`/api/disputes/cases/${id}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content,is_request:isRequest}),credentials:'include'});el.value='';openDisputeCase(id);}
-async function uploadDispAdminDocs(id){const files=document.getElementById('adminDispUpload').files;if(!files.length)return;const fd=new FormData();for(const f of files)fd.append('documents',f);fd.append('doc_type','response');await fetch(`/api/disputes/cases/${id}/documents`,{method:'POST',body:fd,credentials:'include'});openDisputeCase(id);}
-async function uploadDispClientDocs(id){const files=document.getElementById('clientDispUpload').files;if(!files.length)return;const fd=new FormData();for(const f of files)fd.append('documents',f);fd.append('doc_type','supporting');await fetch(`/api/disputes/cases/${id}/documents`,{method:'POST',body:fd,credentials:'include'});openDisputeCase(id);}
 </script>
 </body>
 </html>
