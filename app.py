@@ -809,6 +809,32 @@ def delete_session(session_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def extract_pdf_text_lazy(doc):
+    """Extract text from a PDF Document record on first use, update content_text in DB."""
+    placeholder = "[PDF uploaded - text will be extracted when you ask a question about it]"
+    if not doc.content_text or doc.content_text.strip() == placeholder:
+        try:
+            import io as _io
+            upload_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+            file_path = os.path.join(upload_folder, doc.filename)
+            if os.path.exists(file_path):
+                with open(file_path, 'rb') as f:
+                    file_bytes = f.read()
+                text = ""
+                try:
+                    reader = PyPDF2.PdfReader(_io.BytesIO(file_bytes))
+                    text = "\n".join(p.extract_text() or "" for p in reader.pages)
+                except Exception:
+                    pass
+                if text.strip():
+                    doc.content_text = text[:50000]
+                    db.session.commit()
+                    return doc.content_text
+            return doc.content_text or placeholder
+        except Exception:
+            return doc.content_text or placeholder
+    return doc.content_text
+
 @app.route("/ask", methods=["POST"])
 def ask():
     try:
@@ -1068,45 +1094,20 @@ def upload_document():
         if not allowed_file(file.filename):
             return jsonify({"error": "Invalid file type. Allowed: PDF, DOC, DOCX, TXT, PNG, JPG"}), 400
         filename = secure_filename(file.filename)
-        content_text = ""
-        file_data = file.read()
-        if filename.lower().endswith('.pdf'):
-            try:
-                import pdfplumber, io
-                with pdfplumber.open(io.BytesIO(file_data)) as pdf:
-                    content_text = "\n".join(p.extract_text() or "" for p in pdf.pages)
-            except Exception:
-                pass
-            if len(content_text.strip()) < 100:
-                try:
-                    import io
-                    reader = PyPDF2.PdfReader(io.BytesIO(file_data))
-                    content_text = "\n".join(p.extract_text() or "" for p in reader.pages)
-                except Exception:
-                    pass
-            if len(content_text.strip()) < 100:
-                try:
-                    import base64
-                    b64 = base64.standard_b64encode(file_data).decode("utf-8")
-                    vision_resp = client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[{"role":"user","content":[
-                            {"type":"text","text":"Extract all text from this PDF document. Return the complete text content only, preserving structure."},
-                            {"type":"file","file":{"filename":filename,"file_data":"data:application/pdf;base64,"+b64}}
-                        ]}],
-                        max_tokens=4000
-                    )
-                    content_text = vision_resp.choices[0].message.content
-                except Exception as ve:
-                    content_text = "[Could not extract PDF text: " + str(ve) + "]"
-        elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        if ext in ('txt', 'doc', 'docx'):
+            content_text = file.read().decode("utf-8", errors="ignore")[:50000]
+        elif ext in ('png', 'jpg', 'jpeg'):
+            file.read()  # discard bytes
             content_text = "[Image uploaded - visual analysis available via chat]"
         else:
-            content_text = file_data.decode("utf-8", errors="ignore")
+            # PDF and anything else: store placeholder, extract lazily on first use
+            file.read()  # discard bytes to free memory
+            content_text = "[PDF uploaded - text will be extracted when you ask a question about it]"
         doc = Document(filename=filename, content_text=content_text, user_id=current_user.id if current_user.is_authenticated else None)
         db.session.add(doc)
         db.session.commit()
-        return jsonify({"message": "Document uploaded successfully", "document": doc.to_dict(), "content_preview": content_text[:500] if content_text else "", "remaining": msg if isinstance(msg, int) else None})
+        return jsonify({"message": "Document uploaded successfully", "document": doc.to_dict(), "content_preview": content_text[:200], "remaining": msg if isinstance(msg, int) else None})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
