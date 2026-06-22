@@ -101,9 +101,19 @@ class TrainingDocument(db.Model):
     jurisdiction = db.Column(db.String(50), default='Tanzania')
     uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     verified = db.Column(db.Boolean, default=False)
+    effective_date = db.Column(db.String(50), nullable=True)
+    is_current = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    chunks = db.relationship('DocumentChunk', backref='training_doc', lazy=True, cascade='all, delete-orphan')
     def to_dict(self):
-        return {'id': self.id, 'title': self.title, 'filename': self.filename, 'doc_type': self.doc_type, 'source': self.source, 'jurisdiction': self.jurisdiction, 'verified': self.verified, 'created_at': self.created_at.strftime('%Y-%m-%d %H:%M')}
+        return {'id': self.id, 'title': self.title, 'filename': self.filename, 'doc_type': self.doc_type, 'source': self.source, 'jurisdiction': self.jurisdiction, 'verified': self.verified, 'effective_date': self.effective_date, 'is_current': self.is_current, 'created_at': self.created_at.strftime('%Y-%m-%d %H:%M')}
+
+class DocumentChunk(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    training_doc_id = db.Column(db.Integer, db.ForeignKey('training_document.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    section_reference = db.Column(db.String(200), nullable=True)
+    chunk_index = db.Column(db.Integer, nullable=False, default=0)
 
 class NewsUpdate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -196,11 +206,38 @@ def tax_professional_required(f):
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 _ANTI_HALLUCINATION = """
-You are TaxGPT, a helpful AI tax assistant for East Africa.
-- Answer tax, finance, and business questions for Tanzania, Kenya, and Uganda.
-- For calculations show step-by-step workings. Tanzania rates: VAT 18%, SDL 3.5%, WCF 0.5%, Corporate tax 30%. PAYE: deduct NSSF first (10% gross, no upper cap), then apply monthly bands 0%%/8%%/20%%/25%%/30%%.
-- Cite laws confidently. Only say verify with TRA for genuinely uncertain specific figures.
-- If web search results provided, use them and cite source URL. Prioritise TRA (tra.go.tz), KPMG, PwC, Deloitte, and Ernst & Young sources above others.
+You are TaxGPT, a specialist AI tax assistant for East Africa (Tanzania, Kenya, Uganda).
+
+MANDATORY RULES — follow every rule in every response:
+
+1. CONFIDENCE TAG: Begin EVERY response with exactly one of these tags on its own line:
+   [CONFIRMED] — you have direct statutory/regulatory authority for the answer
+   [INTERPRETED] — you are applying or interpreting law by analogy or general principle
+   [GENERAL] — general guidance only; no specific statutory authority can be cited
+
+2. CITATIONS: After every legal or tax claim add an inline citation, e.g.:
+   *(Income Tax Act Cap 332, Section 83)* or *(VAT Act Cap 148, Section 11)*
+
+3. STRUCTURED ANSWERS for complex questions (use this format):
+   **Issue:** what is being asked
+   **Relevant Law:** statute(s) and section(s) that apply
+   **Analysis:** application of law to facts
+   **Conclusion:** direct answer
+   **Sources:** list every law and URL cited
+
+4. RATES (Tanzania, Finance Act 2025/2026): VAT 18%%, SDL 3.5%% (employer), WCF 0.5%% (employer),
+   Corporate tax 30%%, NSSF 10%% employee contribution (no cap). PAYE monthly bands:
+   0%% on first TZS 270,000 | 8%% on 270,001–520,000 | 20%% on 520,001–760,000 |
+   25%% on 760,001–1,000,000 | 30%% above 1,000,000.
+   Always specify "as per Finance Act 2025/2026" when quoting rates.
+
+5. WEB SOURCES: If web search results are provided, cite the URL inline, e.g.:
+   *(Source: tra.go.tz)* Prioritise TRA, KPMG, PwC, Deloitte, and EY sources.
+
+6. CONFIDENCE LANGUAGE:
+   - "Confirmed under [law]" when you have direct authority.
+   - "Based on [law], interpreted as…" when applying by analogy.
+   - Never refuse to answer. Be confident, clear, and helpful.
 """
 
 TOOL_PROMPTS = {
@@ -333,96 +370,142 @@ def web_search(query, max_results=6):
                 merged.append(r)
 
         if not merged:
-            return ""
+            return "", []
         parts = []
+        sources = []
         for r in merged:
             title = r.get("title", "")
             url = r.get("url", "")
             content_snippet = r.get("content", "")[:600]
             parts.append(f"SOURCE: {title}\nURL: {url}\nCONTENT: {content_snippet}\n")
-        return "\n---\n".join(parts)
+            if url:
+                sources.append({"title": title, "url": url})
+        return "\n---\n".join(parts), sources
     except Exception as e:
         print("Web search error:", str(e))
-        return ""
+        return "", []
 
-def search_training_docs(query, jurisdiction="Tanzania", max_results=3):
+def chunk_document(text, doc_id):
+    """Split a tax document into searchable chunks by section headings (max 1500 chars each)."""
+    DocumentChunk.query.filter_by(training_doc_id=doc_id).delete()
+    heading_pattern = r'(?=\b(?:Section|SECTION|Part|PART|Chapter|CHAPTER|Article|ARTICLE)\s+[\w\d]+)'
+    raw_parts = re.split(heading_pattern, text)
+    chunks = []
+    for part in raw_parts:
+        part = part.strip()
+        if not part:
+            continue
+        while len(part) > 1500:
+            chunks.append(part[:1500])
+            part = part[1500:].strip()
+        if part:
+            chunks.append(part)
+    if not chunks:
+        chunks = [text[i:i+1500] for i in range(0, len(text), 1500) if text[i:i+1500].strip()]
+    saved = 0
+    for idx, chunk_text in enumerate(chunks):
+        sec_match = re.match(r'^((?:Section|SECTION|Part|PART|Chapter|CHAPTER|Article|ARTICLE)\s+[\w\d]+[^\n]*)', chunk_text)
+        section_ref = sec_match.group(1)[:200] if sec_match else None
+        db.session.add(DocumentChunk(training_doc_id=doc_id, content=chunk_text, section_reference=section_ref, chunk_index=idx))
+        saved += 1
+    db.session.commit()
+    return saved
+
+def _score_words(text, words):
+    t = text.lower()
+    return sum(t.count(w) for w in words if len(w) > 2)
+
+def search_training_docs(query, jurisdiction="Tanzania", max_results=5):
+    """Search DocumentChunks first (precise), fall back to full docs."""
     try:
-        docs = TrainingDocument.query.filter(TrainingDocument.jurisdiction == jurisdiction).all()
-        if not docs:
-            return ""
         query_lower = query.lower()
         query_words = set(re.findall(r'\w+', query_lower))
-        tax_keywords = {
-            'tax': ['tax', 'taxation', 'revenue', 'tra'],
-            'vat': ['vat', 'value added tax', 'vat act', 'vat registration'],
-            'income': ['income', 'income tax', 'paye', 'taxable income'],
-            'appeal': ['appeal', 'appeals', 'tribunal', 'dispute', 'objection'],
-            'business': ['business', 'company', 'corporation', 'enterprise', 'tin'],
-            'certificate': ['certificate', 'clearance', 'tcc', 'compliance'],
-            'withholding': ['withholding', 'wht', 'deduction', 'deducted'],
-            'customs': ['customs', 'import', 'export', 'duty', 'tariff'],
-            'stamp': ['stamp', 'stamp duty', 'transfer', 'conveyance'],
-            'tourism': ['tourism', 'tourist', 'hotel', 'travel'],
-            'training': ['training', 'vocational', 'education', 'skill'],
-            'amendment': ['amendment', 'amended', 'change', 'update', 'revision'],
-            'reserve': ['reserve', 'certificate', 'tax reserve'],
+        TAX_EXPAND = {
+            'vat': ['vat', 'value added tax'], 'income': ['income', 'paye', 'taxable'],
+            'appeal': ['appeal', 'tribunal', 'objection', 'dispute'],
+            'withholding': ['withholding', 'wht'], 'customs': ['customs', 'import', 'duty'],
+            'sdl': ['sdl', 'skills', 'levy'], 'wcf': ['wcf', 'workers'],
+            'nssf': ['nssf', 'social security'], 'stamp': ['stamp duty'],
         }
-        expanded_words = set(query_words)
-        for key, related in tax_keywords.items():
-            if any(word in query_lower for word in related):
-                expanded_words.update(related)
+        expanded = set(query_words)
+        for related in TAX_EXPAND.values():
+            if any(w in query_lower for w in related):
+                expanded.update(related)
+
+        # --- Chunk search (preferred) ---
+        chunks = (DocumentChunk.query
+                  .join(TrainingDocument, DocumentChunk.training_doc_id == TrainingDocument.id)
+                  .filter(TrainingDocument.jurisdiction == jurisdiction)
+                  .all())
+        doc_names_used = []
+        if chunks:
+            scored = []
+            for chunk in chunks:
+                score = _score_words(chunk.content, expanded) * 1
+                if chunk.section_reference:
+                    score += _score_words(chunk.section_reference, expanded) * 4
+                if score > 0:
+                    scored.append((score, chunk))
+            scored.sort(key=lambda x: x[0], reverse=True)
+            top = scored[:max_results]
+            if top:
+                parts = []
+                for _, chunk in top:
+                    parent = db.session.get(TrainingDocument, chunk.training_doc_id)
+                    doc_title = parent.title if parent else "Tax Document"
+                    eff = f" [{parent.effective_date}]" if parent and parent.effective_date else ""
+                    ref = f" — {chunk.section_reference}" if chunk.section_reference else ""
+                    parts.append(f"--- {doc_title}{eff}{ref} ---\n{chunk.content}\n")
+                    if doc_title not in doc_names_used:
+                        doc_names_used.append(doc_title)
+                return "\n".join(parts), doc_names_used
+
+        # --- Full-doc fallback ---
+        docs = TrainingDocument.query.filter(TrainingDocument.jurisdiction == jurisdiction).all()
+        if not docs:
+            return "", []
         scored_docs = []
         for doc in docs:
             if not doc.content_text or len(doc.content_text) < 50:
                 continue
-            doc_title_lower = doc.title.lower()
-            doc_content_lower = doc.content_text[:8000].lower()
-            title_score = 0
-            content_score = 0
-            for word in expanded_words:
-                if len(word) > 2:
-                    title_score += doc_title_lower.count(word) * 5
-                    content_score += doc_content_lower.count(word) * 1
-            if query_lower in doc_title_lower:
-                title_score += 50
-            doc_type_lower = doc.doc_type.lower()
-            if any(word in doc_type_lower for word in expanded_words):
-                title_score += 20
-            total_score = title_score + content_score
-            if total_score > 0:
-                scored_docs.append((total_score, doc))
+            score = (_score_words(doc.title, expanded) * 5 +
+                     _score_words(doc.content_text[:8000], expanded) +
+                     (50 if query_lower in doc.title.lower() else 0))
+            if score > 0:
+                scored_docs.append((score, doc))
         scored_docs.sort(key=lambda x: x[0], reverse=True)
-        top_docs = scored_docs[:max_results]
+        top_docs = scored_docs[:max_results] or [(1, d) for d in docs[:2] if d.content_text and len(d.content_text) > 50]
         if not top_docs:
-            fallback_docs = [d for d in docs if d.content_text and len(d.content_text) > 50][:2]
-            if fallback_docs:
-                top_docs = [(1, d) for d in fallback_docs]
-            else:
-                return ""
-        context_parts = []
-        for score, doc in top_docs:
-            content_preview = doc.content_text[:3000]
-            context_parts.append("--- DOCUMENT: " + doc.title + " (" + doc.doc_type + ") ---\n" + content_preview + "\n")
-        return "\n".join(context_parts)
+            return "", []
+        parts = []
+        for _, doc in top_docs:
+            eff = f" [{doc.effective_date}]" if doc.effective_date else ""
+            parts.append(f"--- DOCUMENT: {doc.title}{eff} ({doc.doc_type}) ---\n{doc.content_text[:3000]}\n")
+            doc_names_used.append(doc.title)
+        return "\n".join(parts), doc_names_used
     except Exception as e:
         print("RAG search error: " + str(e))
-        return ""
+        return "", []
 
 def build_rag_prompt(question, tool="tax_research", jurisdiction="Tanzania", user_doc_context=""):
-    doc_context = search_training_docs(question, jurisdiction)
-    web_context = web_search(question + " Tanzania tax " + jurisdiction)
+    doc_context, doc_sources = search_training_docs(question, jurisdiction)
+    web_context, web_sources = web_search(question + " Tanzania tax " + jurisdiction)
     base_prompt = TOOL_PROMPTS.get(tool, TOOL_PROMPTS["tax_research"])
+
+    has_official = bool(doc_context) or any("tra.go.tz" in s.get("url","") for s in web_sources)
+    confidence = "confirmed" if has_official else ("interpreted" if doc_context or web_context else "general")
+
     extra = ""
     if user_doc_context:
         extra += "\n\nUSER UPLOADED DOCUMENTS (highest priority — the user's own documents):\n" + user_doc_context
     if doc_context:
         extra += "\n\nOFFICIAL TAX DOCUMENTS (use as authoritative source):\n" + doc_context
     if web_context:
-        extra += "\n\nLIVE WEB SEARCH RESULTS (prioritise TRA, KPMG, PwC, Deloitte, EY sources):\n" + web_context + "\nCite the source URL when using web results."
-    if extra:
-        return base_prompt + extra + "\n\nUser question: " + question
-    else:
-        return base_prompt + "\n\nUser question: " + question
+        extra += "\n\nLIVE WEB SEARCH RESULTS (prioritise TRA, KPMG, PwC, Deloitte, EY):\n" + web_context + "\nCite source URLs inline."
+
+    prompt = (base_prompt + extra + "\n\nUser question: " + question) if extra else (base_prompt + "\n\nUser question: " + question)
+    sources = {"web": web_sources, "docs": doc_sources, "confidence": confidence}
+    return prompt, sources
 
 def log_audit(action, entity_type=None, entity_id=None, details=None):
     try:
@@ -747,7 +830,7 @@ def ask():
                 if d.content_text and len(d.content_text.strip()) > 50:
                     doc_parts.append("--- " + d.filename + " ---\n" + d.content_text[:3000])
             user_doc_context = "\n\n".join(doc_parts)
-        system_prompt = build_rag_prompt(question, tool, jurisdiction, user_doc_context)
+        system_prompt, sources = build_rag_prompt(question, tool, jurisdiction, user_doc_context)
         if session_id:
             chat_session = ChatSession.query.get(session_id)
             if not chat_session:
@@ -784,6 +867,7 @@ def ask():
             db.session.add(ai_msg)
             db.session.commit()
             yield "data: " + json.dumps({'type': 'done', 'remaining': msg if isinstance(msg, int) else None}) + "\n\n"
+            yield "data: " + json.dumps({'type': 'sources', 'sources': sources}) + "\n\n"
 
         return Response(stream_with_context(generate()), mimetype='text/event-stream')
     except Exception as e:
@@ -1431,6 +1515,8 @@ def upload_training_doc():
         title = request.form.get("title", file.filename)
         doc_type = request.form.get("doc_type", "general")
         jurisdiction = request.form.get("jurisdiction", "Tanzania")
+        effective_date = request.form.get("effective_date", "").strip() or None
+        is_current = request.form.get("is_current", "true").lower() != "false"
         filename = secure_filename(file.filename)
         content_text = ""
         if filename.lower().endswith(".pdf"):
@@ -1442,11 +1528,29 @@ def upload_training_doc():
                 content_text = "Could not extract text: " + str(e)
         else:
             content_text = file.read().decode("utf-8", errors="ignore")
-        doc = TrainingDocument(title=title, filename=filename, content_text=content_text[:50000], doc_type=doc_type, source="admin_upload", jurisdiction=jurisdiction, uploaded_by=current_user.id)
+        doc = TrainingDocument(title=title, filename=filename, content_text=content_text[:50000], doc_type=doc_type, source="admin_upload", jurisdiction=jurisdiction, effective_date=effective_date, is_current=is_current, uploaded_by=current_user.id)
         db.session.add(doc)
         db.session.commit()
-        log_audit("upload_training_doc", "training_document", doc.id)
-        return jsonify({"message": "Training document uploaded", "document": doc.to_dict()})
+        chunk_count = chunk_document(content_text[:50000], doc.id) if len(content_text.strip()) > 100 else 0
+        log_audit("upload_training_doc", "training_document", doc.id, f"Chunked into {chunk_count} chunks")
+        return jsonify({"message": f"Training document uploaded and split into {chunk_count} chunks", "document": doc.to_dict(), "chunks": chunk_count})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/chunk-documents", methods=["POST"])
+@admin_required
+def admin_chunk_documents():
+    try:
+        docs = TrainingDocument.query.all()
+        total_chunks = 0
+        docs_processed = 0
+        for doc in docs:
+            if doc.content_text and len(doc.content_text.strip()) > 100:
+                n = chunk_document(doc.content_text, doc.id)
+                total_chunks += n
+                docs_processed += 1
+        log_audit("chunk_documents", "training_document", None, f"Chunked {docs_processed} docs into {total_chunks} chunks")
+        return jsonify({"message": f"Chunked {docs_processed} documents into {total_chunks} chunks", "docs_processed": docs_processed, "total_chunks": total_chunks})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1766,6 +1870,14 @@ def migrate_db():
                     db.session.commit()
                 if 'is_premium' not in columns:
                     db.session.execute(db.text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS is_premium BOOLEAN DEFAULT FALSE'))
+                    db.session.commit()
+            if 'training_document' in tables:
+                td_cols = [c['name'] for c in inspector.get_columns('training_document')]
+                if 'effective_date' not in td_cols:
+                    db.session.execute(db.text("ALTER TABLE training_document ADD COLUMN IF NOT EXISTS effective_date VARCHAR(50)"))
+                    db.session.commit()
+                if 'is_current' not in td_cols:
+                    db.session.execute(db.text("ALTER TABLE training_document ADD COLUMN IF NOT EXISTS is_current BOOLEAN DEFAULT TRUE"))
                     db.session.commit()
             db.create_all()
             seed_comparison_data()

@@ -65,6 +65,20 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
 .ai-message code{background:#161f3a;padding:2px 7px;border-radius:5px;font-family:monospace;font-size:13px}
 .ai-message pre{background:#161f3a;padding:14px;border-radius:10px;overflow-x:auto;margin:10px 0}
 .ai-message pre code{background:none;padding:0}
+.confidence-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:10px;letter-spacing:0.4px;text-transform:uppercase}
+.badge-confirmed{background:#052e16;color:#4ade80;border:1px solid #166534}
+.badge-interpreted{background:#1c1207;color:#fbbf24;border:1px solid #92400e}
+.badge-general{background:#0f172a;color:#94a3b8;border:1px solid #334155}
+.sources-block{margin-top:12px;padding:10px 14px;background:#020817;border-radius:8px;border:1px solid #161f3a;font-size:12px}
+.sources-block summary{color:#64748b;cursor:pointer;font-weight:600;user-select:none;outline:none;list-style:none}
+.sources-block summary::-webkit-details-marker{display:none}
+.sources-block summary::before{content:'▶ ';font-size:10px;transition:transform 0.2s}
+.sources-block[open] summary::before{content:'▼ '}
+.sources-list{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.source-item{display:flex;align-items:flex-start;gap:6px;color:#94a3b8}
+.source-item a{color:#dfff00;text-decoration:none;word-break:break-all}
+.source-item a:hover{text-decoration:underline}
+.source-doc{color:#7dd3fc}
 .bottom-section{padding:16px 48px 28px;flex-shrink:0}
 .search-box{width:100%;max-width:720px;min-height:56px;display:flex;background:#0c1635;border:1px solid #1e293b;border-radius:16px;overflow:hidden;margin:0 auto;align-items:flex-end;padding:6px 4px;transition:border-color 0.2s}
 .search-box:focus-within{border-color:#2a3a6a}
@@ -815,12 +829,23 @@ body{background:#020817;color:white;height:100vh;display:flex;font-size:15px;lin
           </select>
           <input type="file" class="calc-input" id="trainingDocFile" accept=".pdf,.doc,.docx,.txt" style="padding:10px;">
         </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <input type="text" class="calc-input" id="trainingDocEffectiveDate" placeholder="Effective date (e.g. 2025/2026)">
+          <select class="calc-input" id="trainingDocIsCurrent" style="background:#020817;color:white;">
+            <option value="true">✅ Current / In Force</option>
+            <option value="false">🗃 Historical / Superseded</option>
+          </select>
+        </div>
         <button class="calc-btn" onclick="uploadTrainingDocument()">📤 Upload Document</button>
         <div id="trainingUploadResult" class="hidden" style="margin-top:12px;padding:12px;background:#020817;border-radius:8px;color:#94a3b8;"></div>
       </div>
 
       <div class="calc-card" style="margin-bottom:20px;">
-        <h3 style="margin-bottom:16px;">📚 Uploaded Training Documents</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;">📚 Uploaded Training Documents</h3>
+          <button onclick="chunkAllDocuments()" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;" title="Re-index documents into searchable chunks">⚡ Re-chunk All</button>
+        </div>
+        <div id="chunkResult" style="display:none;margin-bottom:10px;padding:8px 12px;background:#052e16;border-radius:6px;color:#4ade80;font-size:13px;"></div>
         <div id="adminTrainingDocsList" style="max-height:300px;overflow-y:auto;">
           <p style="color:#64748b;text-align:center;">Loading documents...</p>
         </div>
@@ -1190,7 +1215,7 @@ function loadSession(sessionId) {
     (messages || []).forEach(msg => {
       const div = document.createElement('div');
       div.className = 'message ' + msg.role + '-message';
-      if (msg.role === 'ai') div.innerHTML = marked.parse(msg.content);
+      if (msg.role === 'ai') div.innerHTML = buildMessageHTML(msg.content, null);
       else div.textContent = msg.content;
       chatArea.appendChild(div);
     });
@@ -1229,6 +1254,47 @@ document.getElementById('userInput').addEventListener('keypress', function(e) {
   }
 });
 
+function buildConfidenceBadge(confidence) {
+  if (!confidence) return '';
+  const map = {
+    confirmed: {cls:'badge-confirmed', icon:'✓', label:'Confirmed'},
+    interpreted: {cls:'badge-interpreted', icon:'⚑', label:'Interpreted'},
+    general: {cls:'badge-general', icon:'ℹ', label:'General Guidance'}
+  };
+  const b = map[confidence] || map.general;
+  return `<div class="confidence-badge ${b.cls}">${b.icon} ${b.label}</div>`;
+}
+
+function buildSourcesBlock(sources) {
+  if (!sources) return '';
+  const web = (sources.web || []).slice(0, 5);
+  const docs = sources.docs || [];
+  if (!web.length && !docs.length) return '';
+  let items = '';
+  docs.forEach(d => { items += `<div class="source-item"><span>📄</span><span class="source-doc">${escapeHtml(d)}</span></div>`; });
+  web.forEach(s => {
+    const title = escapeHtml(s.title || s.url || '');
+    const url = escapeHtml(s.url || '');
+    items += `<div class="source-item"><span>🔗</span><a href="${url}" target="_blank" rel="noopener">${title || url}</a></div>`;
+  });
+  return `<div class="sources-block"><details><summary>Sources used</summary><div class="sources-list">${items}</div></details></div>`;
+}
+
+function buildMessageHTML(text, sources) {
+  const CONFIDENCE_RE = /^\[(CONFIRMED|INTERPRETED|GENERAL)\]\s*\n?/i;
+  let confidence = null;
+  const m = text.match(CONFIDENCE_RE);
+  if (m) {
+    confidence = m[1].toLowerCase();
+    text = text.replace(CONFIDENCE_RE, '');
+  } else if (sources && sources.confidence) {
+    confidence = sources.confidence;
+  }
+  let html = '';
+  try { html = marked.parse(text); } catch { html = escapeHtml(text); }
+  return buildConfidenceBadge(confidence) + html + buildSourcesBlock(sources);
+}
+
 function sendMessage(e) {
   e.preventDefault();
   const question = document.getElementById('userInput').value.trim();
@@ -1258,6 +1324,7 @@ function sendMessage(e) {
   let fullText = '';
   let sessionIdFromStream = null;
   let isFirstToken = true;
+  let pendingSources = null;
 
   fetch('/ask', {
     method: 'POST',
@@ -1279,8 +1346,8 @@ function sendMessage(e) {
           askBtn.disabled = false;
           const finalDiv = document.createElement('div');
           finalDiv.className = 'message ai-message';
-          try { finalDiv.innerHTML = marked.parse(fullText); }
-          catch { finalDiv.textContent = fullText; }
+          const rendered = buildMessageHTML(fullText, pendingSources);
+          finalDiv.innerHTML = rendered;
           thinkingDiv.parentNode.replaceChild(finalDiv, thinkingDiv);
           chatArea.scrollTop = chatArea.scrollHeight;
           if (sessionIdFromStream) { currentSessionId = sessionIdFromStream; loadSessions(); }
@@ -1297,6 +1364,8 @@ function sendMessage(e) {
                 if (isFirstToken) { isFirstToken = false; thinkingDiv.innerHTML = ''; thinkingDiv.style.whiteSpace = 'pre-wrap'; }
                 thinkingDiv.textContent = fullText;
                 chatArea.scrollTop = chatArea.scrollHeight;
+              } else if (data.type === 'sources') {
+                pendingSources = data.sources;
               } else if (data.type === 'done' && data.remaining !== undefined && data.remaining !== null && data.remaining <= 2) {
                 showLimitBanner('You have ' + data.remaining + ' free uses remaining.');
               }
@@ -1937,17 +2006,36 @@ function loadAdminTrainingDocs() {
     docs.forEach(d => {
       const div = document.createElement('div');
       div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #1e293b;';
-      div.innerHTML = '<div><div style="color:white;font-weight:bold;">' + escapeHtml(d.title) + '</div><div style="color:#64748b;font-size:12px;">' + d.doc_type + ' | ' + d.jurisdiction + ' | ' + d.created_at + '</div></div>' +
+      const eff = d.effective_date ? ` <span style="background:#052e16;color:#4ade80;padding:1px 7px;border-radius:10px;font-size:11px;">${escapeHtml(d.effective_date)}</span>` : '';
+      const curr = d.is_current === false ? ' <span style="color:#f87171;font-size:11px;">(historical)</span>' : '';
+      div.innerHTML = '<div><div style="color:white;font-weight:bold;">' + escapeHtml(d.title) + eff + curr + '</div><div style="color:#64748b;font-size:12px;">' + d.doc_type + ' | ' + d.jurisdiction + ' | ' + d.created_at + '</div></div>' +
         '<button onclick="deleteTrainingDoc(' + d.id + ')" style="background:#451a1a;border:none;color:#f87171;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">Delete</button>';
       list.appendChild(div);
     });
   }).catch(() => { list.innerHTML = '<p style="color:#f87171;text-align:center;">Error loading documents</p>'; });
 }
 
+function chunkAllDocuments() {
+  const btn = event.target;
+  const resultDiv = document.getElementById('chunkResult');
+  btn.disabled = true; btn.textContent = '⏳ Chunking...';
+  fetch('/api/admin/chunk-documents', { method: 'POST', credentials: 'include' })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false; btn.textContent = '⚡ Re-chunk All';
+    if (data.error) { resultDiv.style.background='#450a0a'; resultDiv.style.color='#f87171'; resultDiv.textContent = 'Error: ' + data.error; }
+    else { resultDiv.style.background='#052e16'; resultDiv.style.color='#4ade80'; resultDiv.textContent = data.message; }
+    resultDiv.style.display = 'block';
+  })
+  .catch(() => { btn.disabled = false; btn.textContent = '⚡ Re-chunk All'; });
+}
+
 function uploadTrainingDocument() {
   const title = document.getElementById('trainingDocTitle').value.trim();
   const docType = document.getElementById('trainingDocType').value;
   const jurisdiction = document.getElementById('trainingDocJurisdiction').value;
+  const effectiveDate = document.getElementById('trainingDocEffectiveDate').value.trim();
+  const isCurrent = document.getElementById('trainingDocIsCurrent').value;
   const fileInput = document.getElementById('trainingDocFile');
   const resultDiv = document.getElementById('trainingUploadResult');
   if (!title || !fileInput.files[0]) { resultDiv.textContent = 'Please enter a title and select a file.'; resultDiv.classList.remove('hidden'); return; }
@@ -1955,6 +2043,8 @@ function uploadTrainingDocument() {
   const formData = new FormData();
   formData.append('file', fileInput.files[0]);
   formData.append('title', title); formData.append('doc_type', docType); formData.append('jurisdiction', jurisdiction);
+  if (effectiveDate) formData.append('effective_date', effectiveDate);
+  formData.append('is_current', isCurrent);
   fetch('/api/admin/training-docs/upload', { method: 'POST', credentials: 'include', body: formData })
   .then(r => r.json())
   .then(data => {
