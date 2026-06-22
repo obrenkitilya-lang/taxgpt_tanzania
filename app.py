@@ -198,9 +198,9 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 _ANTI_HALLUCINATION = """
 You are TaxGPT, a helpful AI tax assistant for East Africa.
 - Answer tax, finance, and business questions for Tanzania, Kenya, and Uganda.
-- For calculations show step-by-step workings. Tanzania rates: VAT 18%, SDL 4%, WCF 0.5%, Corporate tax 30%. PAYE: deduct NSSF first (10% gross, max 100,000 TZS), then apply monthly bands 0%%/8%%/20%%/25%%/30%%.
+- For calculations show step-by-step workings. Tanzania rates: VAT 18%, SDL 3.5%, WCF 0.5%, Corporate tax 30%. PAYE: deduct NSSF first (10% gross, no upper cap), then apply monthly bands 0%%/8%%/20%%/25%%/30%%.
 - Cite laws confidently. Only say verify with TRA for genuinely uncertain specific figures.
-- If web search results provided, use them and cite source URL.
+- If web search results provided, use them and cite source URL. Prioritise TRA (tra.go.tz), KPMG, PwC, Deloitte, and Ernst & Young sources above others.
 """
 
 TOOL_PROMPTS = {
@@ -221,7 +221,7 @@ TOOL_PROMPTS = {
     "calculators": (
         "You are TaxGPT, a tax calculation assistant for Tanzania, Kenya, and Uganda. "
         "Help verify calculations for: PAYE (Tanzania graduated bands), VAT (18% standard), "
-        "SDL (4% of gross payroll), WCF (0.5% of gross payroll), Corporate Income Tax (30%), "
+        "SDL (3.5% of gross payroll), WCF (0.5% of gross payroll), Corporate Income Tax (30%), "
         "and Withholding Tax. Always show workings step by step. "
         + _ANTI_HALLUCINATION
     ),
@@ -285,34 +285,57 @@ def check_guest_limit(activity_type, limit):
         return True, None
 
 
-def web_search(query, max_results=4):
-    """Search the web using Tavily API for live tax information."""
+PRIORITY_DOMAINS = [
+    "tra.go.tz", "kpmg.com", "pwc.com", "deloitte.com", "ey.com",
+    "taxkenya.com", "kra.go.ke", "ura.go.ug", "mof.go.tz",
+    "africataxreview.com", "bowmanslaw.com", "clydeco.com"
+]
+
+def web_search(query, max_results=6):
+    """Search the web using Tavily API, prioritising TRA and professional tax sources."""
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
         return ""
     try:
         import json as _json
-        data = _json.dumps({
-            "api_key": api_key,
-            "query": query,
-            "search_depth": "basic",
-            "max_results": max_results,
-            "include_domains": [],
-            "exclude_domains": []
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            "https://api.tavily.com/search",
-            data=data,
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            result = _json.loads(resp.read().decode('utf-8'))
-        results = result.get("results", [])
-        if not results:
+
+        def _do_search(q, domains, n):
+            payload = {
+                "api_key": api_key,
+                "query": q,
+                "search_depth": "basic",
+                "max_results": n,
+            }
+            if domains:
+                payload["include_domains"] = domains
+            data = _json.dumps(payload).encode('utf-8')
+            req = urllib.request.Request(
+                "https://api.tavily.com/search",
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                return _json.loads(resp.read().decode('utf-8')).get("results", [])
+
+        priority_results = _do_search(query, PRIORITY_DOMAINS, 3)
+        general_results = _do_search(query, [], max_results)
+
+        seen_urls = set()
+        merged = []
+        for r in priority_results:
+            if r.get("url") not in seen_urls:
+                seen_urls.add(r.get("url"))
+                merged.append(r)
+        for r in general_results:
+            if r.get("url") not in seen_urls and len(merged) < max_results:
+                seen_urls.add(r.get("url"))
+                merged.append(r)
+
+        if not merged:
             return ""
         parts = []
-        for r in results[:max_results]:
+        for r in merged:
             title = r.get("title", "")
             url = r.get("url", "")
             content_snippet = r.get("content", "")[:600]
@@ -321,23 +344,6 @@ def web_search(query, max_results=4):
     except Exception as e:
         print("Web search error:", str(e))
         return ""
-
-LIVE_SEARCH_TRIGGERS = [
-    "current", "latest", "today", "now", "recent", "2024", "2025", "2026",
-    "who is", "who are", "commissioner", "minister", "director", "ceo", "chairman",
-    "new law", "new regulation", "amendment", "budget", "announced", "just",
-    "this year", "this month", "last month", "breaking", "update",
-    "procedure", "procedures", "how to", "how do", "steps to", "process",
-    "appeal", "trab", "trat", "objection", "dispute", "deadline", "penalty",
-    "form", "requirement", "requirements", "register", "registration",
-    "what is the", "what are the", "when is", "when are", "how much",
-    "appeal", "trab", "trat", "objection", "procedure", "procedures",
-    "how to", "steps", "form ", "trb", "deadline", "penalty", "requirement"
-]
-
-def needs_web_search(question):
-    q = question.lower()
-    return any(trigger in q for trigger in LIVE_SEARCH_TRIGGERS)
 
 def search_training_docs(query, jurisdiction="Tanzania", max_results=3):
     try:
@@ -402,17 +408,17 @@ def search_training_docs(query, jurisdiction="Tanzania", max_results=3):
         print("RAG search error: " + str(e))
         return ""
 
-def build_rag_prompt(question, tool="tax_research", jurisdiction="Tanzania"):
+def build_rag_prompt(question, tool="tax_research", jurisdiction="Tanzania", user_doc_context=""):
     doc_context = search_training_docs(question, jurisdiction)
-    web_context = ""
-    if needs_web_search(question):
-        web_context = web_search(question + " Tanzania tax " + jurisdiction)
+    web_context = web_search(question + " Tanzania tax " + jurisdiction)
     base_prompt = TOOL_PROMPTS.get(tool, TOOL_PROMPTS["tax_research"])
     extra = ""
+    if user_doc_context:
+        extra += "\n\nUSER UPLOADED DOCUMENTS (highest priority — the user's own documents):\n" + user_doc_context
     if doc_context:
-        extra += "\n\nOFFICIAL UPLOADED DOCUMENTS (use as primary source):\n" + doc_context
+        extra += "\n\nOFFICIAL TAX DOCUMENTS (use as authoritative source):\n" + doc_context
     if web_context:
-        extra += "\n\nLIVE WEB SEARCH RESULTS (current information from the web):\n" + web_context + "\nWhen using web results, cite the source URL."
+        extra += "\n\nLIVE WEB SEARCH RESULTS (prioritise TRA, KPMG, PwC, Deloitte, EY sources):\n" + web_context + "\nCite the source URL when using web results."
     if extra:
         return base_prompt + extra + "\n\nUser question: " + question
     else:
@@ -733,7 +739,15 @@ def ask():
         if not question:
             return jsonify({"error": "No question provided"}), 400
         jurisdiction = current_user.country if current_user.is_authenticated else "Tanzania"
-        system_prompt = build_rag_prompt(question, tool, jurisdiction)
+        user_doc_context = ""
+        if current_user.is_authenticated:
+            user_docs = Document.query.filter_by(user_id=current_user.id).order_by(Document.uploaded_at.desc()).limit(5).all()
+            doc_parts = []
+            for d in user_docs:
+                if d.content_text and len(d.content_text.strip()) > 50:
+                    doc_parts.append("--- " + d.filename + " ---\n" + d.content_text[:3000])
+            user_doc_context = "\n\n".join(doc_parts)
+        system_prompt = build_rag_prompt(question, tool, jurisdiction, user_doc_context)
         if session_id:
             chat_session = ChatSession.query.get(session_id)
             if not chat_session:
@@ -799,7 +813,7 @@ def calculate_paye():
             paye = 68000 + (taxable_pay - 760000) * 0.25
         else: 
             paye = 128000 + (taxable_pay - 1000000) * 0.30
-        wcf = gross_salary * 0.01
+        wcf = gross_salary * 0.005
         net_pay = gross_salary - nssf - paye
         return jsonify({"gross_salary": gross_salary, "nssf": nssf, "paye": paye, "wcf": wcf, "net_pay": net_pay, "taxable_pay": taxable_pay, "remaining": msg if isinstance(msg, int) else None})
     except Exception as e:
@@ -827,8 +841,8 @@ def calculate_sdl():
             return jsonify({"error": msg, "limit_reached": True}), 403
         data = request.get_json()
         gross_payroll = float(data.get("gross_payroll", 0))
-        sdl_amount = gross_payroll * 0.04
-        return jsonify({"gross_payroll": gross_payroll, "sdl_rate": "4%", "sdl_amount": sdl_amount, "total_cost": gross_payroll + sdl_amount, "remaining": msg if isinstance(msg, int) else None})
+        sdl_amount = gross_payroll * 0.035
+        return jsonify({"gross_payroll": gross_payroll, "sdl_rate": "3.5%", "sdl_amount": sdl_amount, "total_cost": gross_payroll + sdl_amount, "remaining": msg if isinstance(msg, int) else None})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -840,8 +854,8 @@ def calculate_wcf():
             return jsonify({"error": msg, "limit_reached": True}), 403
         data = request.get_json()
         gross_payroll = float(data.get("gross_payroll", 0))
-        wcf_amount = gross_payroll * 0.01
-        return jsonify({"gross_payroll": gross_payroll, "wcf_rate": "1%", "wcf_amount": wcf_amount, "total_cost": gross_payroll + wcf_amount, "remaining": msg if isinstance(msg, int) else None})
+        wcf_amount = gross_payroll * 0.005
+        return jsonify({"gross_payroll": gross_payroll, "wcf_rate": "0.5%", "wcf_amount": wcf_amount, "total_cost": gross_payroll + wcf_amount, "remaining": msg if isinstance(msg, int) else None})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -884,7 +898,7 @@ def calculate_gross_from_net():
         lo, hi = net_pay, net_pay * 3
         for _ in range(60):
             mid = (lo + hi) / 2
-            nssf = min(mid * 0.10, 100000)
+            nssf = mid * 0.10
             taxable = mid - nssf
             if taxable <= 270000: paye = 0
             elif taxable <= 520000: paye = (taxable - 270000) * 0.08
@@ -896,7 +910,7 @@ def calculate_gross_from_net():
             if computed_net < net_pay: lo = mid
             else: hi = mid
         gross_salary = round(mid, 2)
-        nssf = round(min(gross_salary * 0.10, 100000), 2)
+        nssf = round(gross_salary * 0.10, 2)
         taxable = gross_salary - nssf
         if taxable <= 270000: paye = 0
         elif taxable <= 520000: paye = (taxable - 270000) * 0.08
