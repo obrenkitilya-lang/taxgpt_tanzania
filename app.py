@@ -11,6 +11,8 @@ import PyPDF2
 import json
 from datetime import datetime, timedelta
 import re
+import threading
+import io
 import urllib.request
 import urllib.parse
 
@@ -1080,6 +1082,22 @@ def get_documents():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def extract_pdf_background(doc_id, file_data):
+    with app.app_context():
+        try:
+            reader = PyPDF2.PdfReader(io.BytesIO(file_data))
+            text = ""
+            for page in reader.pages:
+                text += (page.extract_text() or "") + "\n"
+            text = text.strip()
+            if text:
+                doc = Document.query.get(doc_id)
+                if doc:
+                    doc.content_text = text[:50000]
+                    db.session.commit()
+        except Exception:
+            pass
+
 @app.route("/api/documents/upload", methods=["POST"])
 def upload_document():
     try:
@@ -1095,18 +1113,20 @@ def upload_document():
             return jsonify({"error": "Invalid file type. Allowed: PDF, DOC, DOCX, TXT, PNG, JPG"}), 400
         filename = secure_filename(file.filename)
         ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        pdf_bytes = None
         if ext in ('txt', 'doc', 'docx'):
             content_text = file.read().decode("utf-8", errors="ignore")[:50000]
         elif ext in ('png', 'jpg', 'jpeg'):
             file.read()  # discard bytes
             content_text = "[Image uploaded - visual analysis available via chat]"
         else:
-            # PDF and anything else: store placeholder, extract lazily on first use
-            file.read()  # discard bytes to free memory
-            content_text = "[PDF uploaded - text will be extracted when you ask a question about it]"
+            pdf_bytes = file.read()
+            content_text = "[PDF uploaded - extracting text in background...]"
         doc = Document(filename=filename, content_text=content_text, user_id=current_user.id if current_user.is_authenticated else None)
         db.session.add(doc)
         db.session.commit()
+        if pdf_bytes is not None:
+            threading.Thread(target=extract_pdf_background, args=(doc.id, pdf_bytes), daemon=True).start()
         return jsonify({"message": "Document uploaded successfully", "document": doc.to_dict(), "content_preview": content_text[:200], "remaining": msg if isinstance(msg, int) else None})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
