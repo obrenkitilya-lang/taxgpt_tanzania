@@ -11,7 +11,6 @@ import PyPDF2
 import json
 from datetime import datetime, timedelta
 import re
-import threading
 import io
 import urllib.request
 import urllib.parse
@@ -1082,21 +1081,14 @@ def get_documents():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def extract_pdf_background(doc_id, file_data):
-    with app.app_context():
-        try:
-            reader = PyPDF2.PdfReader(io.BytesIO(file_data))
-            text = ""
-            for page in reader.pages:
-                text += (page.extract_text() or "") + "\n"
-            text = text.strip()
-            if text:
-                doc = Document.query.get(doc_id)
-                if doc:
-                    doc.content_text = text[:50000]
-                    db.session.commit()
-        except Exception:
-            pass
+def _extract_pdf_text(file_data, max_pages=15):
+    try:
+        reader = PyPDF2.PdfReader(io.BytesIO(file_data))
+        pages_to_read = min(max_pages, len(reader.pages))
+        text = "\n".join(reader.pages[i].extract_text() or "" for i in range(pages_to_read)).strip()
+        return text if text else "PDF could not be extracted"
+    except Exception:
+        return "PDF could not be extracted"
 
 @app.route("/api/documents/upload", methods=["POST"])
 def upload_document():
@@ -1113,20 +1105,16 @@ def upload_document():
             return jsonify({"error": "Invalid file type. Allowed: PDF, DOC, DOCX, TXT, PNG, JPG"}), 400
         filename = secure_filename(file.filename)
         ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
-        pdf_bytes = None
         if ext in ('txt', 'doc', 'docx'):
             content_text = file.read().decode("utf-8", errors="ignore")[:50000]
         elif ext in ('png', 'jpg', 'jpeg'):
             file.read()  # discard bytes
             content_text = "[Image uploaded - visual analysis available via chat]"
         else:
-            pdf_bytes = file.read()
-            content_text = "[PDF uploaded - extracting text in background...]"
+            content_text = _extract_pdf_text(file.read(), max_pages=15)[:50000]
         doc = Document(filename=filename, content_text=content_text, user_id=current_user.id if current_user.is_authenticated else None)
         db.session.add(doc)
         db.session.commit()
-        if pdf_bytes is not None:
-            threading.Thread(target=extract_pdf_background, args=(doc.id, pdf_bytes), daemon=True).start()
         return jsonify({"message": "Document uploaded successfully", "document": doc.to_dict(), "content_preview": content_text[:200], "remaining": msg if isinstance(msg, int) else None})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1171,7 +1159,10 @@ def analyze_document():
         user_msg = ChatMessage(session_id=chat_session.id, role='user', content="[Document: " + doc.filename + "] " + question)
         db.session.add(user_msg)
         db.session.commit()
-        doc_content = doc.content_text[:15000] if doc.content_text and len(doc.content_text.strip()) > 50 else "No readable text could be extracted from this document."
+        if not doc.content_text or doc.content_text.startswith("[PDF uploaded") or len(doc.content_text.strip()) < 50:
+            doc_content = extract_pdf_text_lazy(doc)[:15000] if doc.filename.lower().endswith('.pdf') else (doc.content_text or "No readable text could be extracted from this document.")
+        else:
+            doc_content = doc.content_text[:15000]
         messages = [
             {"role": "system", "content": TOOL_PROMPTS["documents"]},
             {"role": "user", "content": "Document filename: " + doc.filename + "\n\nDocument content:\n" + doc_content + "\n\nQuestion: " + question}
